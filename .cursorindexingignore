@@ -1,0 +1,54 @@
+# Keeps the index clean. Not a boundary — see .cursorignore for that.
+#
+# Everything below stays fully readable by Agent, Tab, and @-mention. All this
+# does is stop semantic search handing back spec dumps and generated
+# boilerplate when you asked about our code.
+#
+# Short file, on purpose. .gitignore already drops the generated SQL schema
+# snapshots at line 304, about 15.4 MB of them, and Cursor ships a default list
+# of roughly a hundred patterns covering lock files, .env*, media, node_modules
+# and so on. Between the two, most of the noise is gone before this file is
+# even read. Check whether something's already handled before adding it here.
+#
+# Roughly 18 MB comes out of the index below.
+# The full HL7 spec search-parameter bundles, one per FHIR version — 9.2 MB
+# between them. This is spec text, not our code, and it buries the actual
+# search-parameter handling logic in every search result.
+src/Microsoft.Health.Fhir.Core/Data/R4/search-parameters.json
+src/Microsoft.Health.Fhir.Core/Data/R4B/search-parameters.json
+src/Microsoft.Health.Fhir.Core/Data/R5/search-parameters.json
+src/Microsoft.Health.Fhir.Core/Data/Stu3/search-parameters.json
+
+# Implementation Guide profiles and examples, 8.6 MB of vendored spec fixtures
+# with no server logic in them. Note this only touches *.json — there are nine
+# .http files living inside these same directories and those are real API
+# examples worth searching for.
+docs/rest/PayerDataExchange/**/*.json
+docs/rest/C4BB/**/*.json
+docs/rest/DaVinciPlanNet/**/*.json
+docs/rest/DaVinciFormulary/**/*.json
+docs/rest/Inferno/*.json
+
+# Generated POCOs for the data synth tool. Regenerated from templates, never
+# hand-edited, so there's no design intent in them worth surfacing.
+tools/FHIRDataSynth/**/*.generated.cs
+
+# Still indexed on purpose — these are calls, not omissions:
+#
+#   docs/rest/**/*.http (38)       Executable API examples. The thing a
+#                                  developer actually goes looking for.
+#   ms-search-parameters.json      Microsoft-authored, a few KB. Real
+#   BaseCapabilities.json          convention, not spec noise.
+#   Data/OperationDefinition/      Hand-authored operation contracts. Small,
+#                                  high signal.
+#   build/, build/jobs/            DevOps reads this repo too. CI config has
+#                                  to stay findable.
+#   Schema/Sql/                    Hand-authored sprocs, tables and types —
+#                                  the actual schema design.
+#   Migrations/*.diff.sql          The record of how each schema change was
+#                                  made, one version at a time.
+#   TestFiles/ non-patient         QA finds these by searching. The PHI-named
+#                                  ones are gone, but that's an access call in
+#                                  .cursorignore, not an indexing one.
+#   docs/*.md                      Where these rules were mined from in the
+#                                  first place.

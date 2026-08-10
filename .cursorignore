@@ -1,0 +1,63 @@
+# Files the Cursor agent shouldn't see.
+#
+# What this actually does: anything matched below stays out of Agent, Tab,
+# Inline Edit, and @-mention context. It's path matching, gitignore syntax. It
+# has no idea what's inside a file — only where the file sits.
+#
+# Don't confuse this with .cursorindexingignore sitting next to it. That one is
+# noise reduction: files stay readable, they just stop cluttering search. This
+# one is access.
+#
+# On the data — these are synthetic HL7 spec examples, not real PHI. They live
+# where real patient extracts live in the production repo, so the patterns carry
+# over even though the data doesn't.
+#
+# If you edit this: a pattern matching nothing blocks nothing, and nothing will
+# warn you. git check-ignore is no help, git has no idea this file exists and
+# will cheerfully report "not ignored" for something Cursor is blocking. The
+# only honest test is to @-mention a file and watch it get refused. Widen
+# freely. Don't narrow it without a second pair of eyes.
+# Bulk patient records. Flat, many-records-per-file — the shape a real clinical
+# export actually arrives in, which is why these are first on the list.
+src/Microsoft.Health.Fhir.Tests.Common/TestFiles/**/*.ndjson
+
+# Patient instances. Deliberately not Patient profiles or StructureDefinitions —
+# the agent needs those to write conformant code, and they describe shape rather
+# than carrying data. Three directories hold instances today; if a fourth turns
+# up, add it, because the rule is about the kind of data and not the location.
+# [Pp] is there because casing is inconsistent across the R4/Stu3/Normative sets.
+src/Microsoft.Health.Fhir.Tests.Common/TestFiles/**/[Pp]atient*.json
+src/Microsoft.Health.Fhir.Tests.Common/TestFiles/**/[Pp]atient*.xml
+src/Microsoft.Health.Fhir.Tests.Common/TestFiles/**/Smart[Pp]atient*.json
+src/Microsoft.Health.Fhir.Tests.Common/TestFiles/**/TokenOverflow[Pp]atient*.json
+docs/rest/Data/*[Pp]atient*.json
+
+# Local dev credentials. launchSettings.json carries local SQL connection
+# strings, and the appsettings overlays carry per-environment config. Base
+# appsettings.json is deliberately left alone — see below.
+testauthenvironment.json
+**/launchSettings.json
+**/appsettings.*.json
+
+# Helm secret templates.
+samples/kubernetes/helm/**/*secret*.yaml
+
+# Left readable on purpose — these are calls, not gaps:
+#
+#   imagingstudy-example.json      Not patient data, and VERA-1042 needs it. A
+#                                  boundary that blocks the work it exists to
+#                                  protect is a boundary people delete.
+#   appsettings.json (base)        Connection string is empty. Genuine config
+#                                  context the agent needs to reason about setup.
+#   docs/rest/**/Profiles/*.json   StructureDefinitions, not instances. Describe
+#                                  shape, contain no data. Note that
+#                                  US_Core_Profiles/Patient.json is a profile
+#                                  despite the filename.
+#   CredScanSuppressions.json      The "mySecretPassword123" in there is a
+#                                  documentation placeholder in a suppression
+#                                  list, not a credential.
+#
+# One thing this can't fix: roughly 50 Bundle fixtures under TestFiles/ may
+# contain Patient entries, and path matching can't see inside a file. That's a
+# limit of the mechanism rather than something to pattern around — and it's a
+# large part of why the CI check exists.
