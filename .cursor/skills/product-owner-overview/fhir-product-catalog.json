@@ -1,0 +1,224 @@
+{
+  "product": {
+    "name": "MidSizedClinic FHIR Server",
+    "summary": "The clinical data backbone for MidSizedClinic, a mid-sized ultrasound imaging center. Stores and retrieves patient records, imaging studies, radiologist reports, and technician worklists via HIPAA-compliant HL7 FHIR R4 REST APIs. Enables clinic operations to manage imaging workflows, integrate with referring providers' EHRs, and migrate legacy patient data without manual re-entry.",
+    "organization": "MidSizedClinic — a dedicated ultrasound imaging center managing 50–100 patient encounters per week, serving primary-care referrals across a regional network.",
+    "primaryUseCase": "Technician books an imaging appointment for a returning patient. System retrieves prior imaging studies and reports from FHIR Server, displays patient history on worklist, captures new ultrasound, radiologist reads and reports via FHIR, clinic sends report to referring provider via secure API.",
+    "primaryUsers": [
+      "Clinic technicians (imaging intake, worklist management)",
+      "Radiologists (reading studies, authoring reports)",
+      "Clinic operations (scheduling, billing, data migration)",
+      "Integration engineers (EHR connectivity, bulk import)",
+      "Compliance officer (audit, PHI access controls)"
+    ],
+    "fhirVersions": ["R4 (primary)", "R4B", "R5", "STU3"],
+    "storageBackends": ["SQL Server (MidSizedClinic default)", "Azure Cosmos DB (optional scale)"],
+    "complianceContext": "HIPAA-regulated. Patient identifiers and imaging reports are PHI. All access must be authenticated and auditable. Bulk import of legacy patient data requires anonymization or explicit consent logging."
+  },
+  "features": [
+    {
+      "id": "F-001",
+      "name": "FHIR R4 REST API — CRUD operations",
+      "status": "shipped",
+      "doc": "docs/flow diagrams/create-resource.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/FhirController.cs",
+      "userStory": "As a clinic technician, I want to create patient records and store imaging studies via standard REST calls so that our worklist app doesn't require custom database knowledge.",
+      "acceptanceCriteria": [
+        "POST to create Patient, ImagingStudy, DiagnosticReport",
+        "GET to retrieve single resource or by ID",
+        "PUT to update resource (e.g., technician marks study as read)",
+        "DELETE for data cleanup (audit-logged for compliance)",
+        "CapabilityStatement at /metadata declares supported operations"
+      ]
+    },
+    {
+      "id": "F-002",
+      "name": "Imaging search — find patients and prior studies",
+      "status": "shipped",
+      "doc": "docs/SearchArchitecture.md",
+      "code": "docs/flow diagrams/search-sql-server.md",
+      "userStory": "As a technician at check-in, I want to search for a patient by name or MRN and see their prior imaging studies so I can confirm history without digging through the file cabinet.",
+      "acceptanceCriteria": [
+        "Search patients by name (family, given), birthDate, identifier (MRN)",
+        "Search ImagingStudy by patient reference, date range, modality (ultrasound, etc.)",
+        "Compartment search: GET /Patient/{id}/ImagingStudy returns all prior studies for that patient",
+        "Results paginated; sorting by date descending"
+      ]
+    },
+    {
+      "id": "F-003",
+      "name": "Role-based access control",
+      "status": "shipped",
+      "doc": "docs/Roles.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Web/roles.json",
+      "userStory": "As a compliance officer, I want role-based data actions so that users only access PHI their job requires.",
+      "acceptanceCriteria": [
+        "read, write, delete, export, hardDelete actions defined",
+        "Roles assignable via identity provider",
+        "Resource-level authorization enforced in handlers"
+      ]
+    },
+    {
+      "id": "F-004",
+      "name": "Authentication (OAuth / JWT)",
+      "status": "shipped",
+      "doc": "docs/Authentication.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Features/Security/SecurityProvider.cs",
+      "userStory": "As MidSizedClinic IT, I want OAuth-protected APIs so that only authenticated clients access patient data.",
+      "acceptanceCriteria": [
+        "Security:Enabled configuration",
+        "Authority and Audience validation",
+        "Development identity provider for local/test"
+      ]
+    },
+    {
+      "id": "F-005",
+      "name": "Bulk export ($export)",
+      "status": "shipped",
+      "doc": "docs/BulkExport.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/ExportController.cs",
+      "userStory": "As a data analyst, I want bulk export of FHIR resources so that we can feed analytics and reporting pipelines.",
+      "acceptanceCriteria": [
+        "Async export jobs via $export",
+        "Azure Blob destination support",
+        "SMART export scope authorization"
+      ]
+    },
+    {
+      "id": "F-006",
+      "name": "Bulk import ($import)",
+      "status": "shipped",
+      "doc": "docs/BulkImport.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/ImportController.cs",
+      "userStory": "As clinic operations, I want NDJSON bulk import so that we can migrate legacy patient data into FHIR.",
+      "acceptanceCriteria": [
+        "Initial and incremental import modes",
+        "Parallel distributed processing",
+        "Configurable via Enable Import setting"
+      ]
+    },
+    {
+      "id": "F-007",
+      "name": "SMART on FHIR — clinic-to-referrer integration",
+      "status": "shipped",
+      "doc": "docs/SMARTonFHIR.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Features/Security/SecurityProvider.cs",
+      "userStory": "As clinic IT, I want SMART-on-FHIR so that referrers' EHR apps can launch against our patient data without requiring custom auth setup for each integration.",
+      "acceptanceCriteria": [
+        "OAuth 2.0 / SMART configuration",
+        "AAD proxy or direct OIDC provider support",
+        "Scopes map to clinic roles (technician, radiologist, admin)"
+      ]
+    },
+    {
+      "id": "F-008",
+      "name": "SQL Server persistence — on-premise data",
+      "status": "shipped",
+      "doc": "docs/SchemaMigrationGuide.md",
+      "code": "src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlServerFhirDataStore.cs",
+      "userStory": "As clinic IT, I want FHIR data stored on SQL Server we manage so that we stay compliant with data-residency policy and can audit database access.",
+      "acceptanceCriteria": [
+        "IFhirDataStore SQL Server implementation",
+        "Schema versioning and migrations tracked",
+        "Local dev Docker stack available",
+        "Production deployment guidance for clinic IT"
+      ]
+    },
+    {
+      "id": "F-009",
+      "name": "Search reindex & maintenance",
+      "status": "shipped",
+      "doc": "docs/SearchParameterCacheRefreshBackgroundService.md",
+      "code": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/ReindexController.cs",
+      "userStory": "As clinic IT ops, I want reindex operations so that after schema changes, search queries stay fast and accurate without rebuilding the whole database.",
+      "acceptanceCriteria": [
+        "POST /reindex triggers async background jobs",
+        "Selective reindex by resource type",
+        "Progress monitoring and audit logging"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "category": "Compliance (HIPAA)",
+      "statement": "Patient data access must be logged and restricted to authenticated staff with role-based permissions. Technicians see imaging worklist; radiologists can read and report; only admins delete.",
+      "source": "docs/Roles.md, docs/Authentication.md, HIPAA minimum necessary standard",
+      "priority": "must",
+      "satisfiedBy": ["F-003", "F-004"],
+      "gap": null
+    },
+    {
+      "id": "REQ-002",
+      "category": "Interoperability",
+      "statement": "Clinic must exchange patient data with referring providers' EHRs using standard FHIR R4 APIs, not custom integrations.",
+      "source": "AGENTS.md, HL7 FHIR R4 spec",
+      "priority": "must",
+      "satisfiedBy": ["F-001"],
+      "gap": null
+    },
+    {
+      "id": "REQ-003",
+      "category": "Operations",
+      "statement": "Technicians must search patient imaging history in < 1 second. Worklist must load prior studies without manual file lookup.",
+      "source": "Clinic workflow observations, docs/SearchArchitecture.md",
+      "priority": "must",
+      "satisfiedBy": ["F-002"],
+      "gap": null
+    },
+    {
+      "id": "REQ-004",
+      "category": "Migration",
+      "statement": "Clinic has 15 years of patient records in legacy system. Must migrate to FHIR without weeks of manual data entry.",
+      "source": "Clinic requirements, docs/BulkImport.md",
+      "priority": "must",
+      "satisfiedBy": ["F-006"],
+      "gap": "Runbook for handling conditional references and consent logging needed during migration cutover"
+    },
+    {
+      "id": "REQ-005",
+      "category": "Reporting & QA",
+      "statement": "Compliance officer must audit who accessed what patient data when, and export study lists for monthly quality reviews.",
+      "source": "HIPAA audit trail requirement, clinic QA process",
+      "priority": "must",
+      "satisfiedBy": ["F-005", "F-009"],
+      "gap": null
+    },
+    {
+      "id": "REQ-006",
+      "category": "Ecosystem",
+      "statement": "Clinic wants to adopt a SMART app for patient portal access so patients can view their imaging reports. App must launch securely without clinic building auth.",
+      "source": "Patient engagement initiative, docs/SMARTonFHIR.md",
+      "priority": "should",
+      "satisfiedBy": ["F-007"],
+      "gap": "F-013 (patient-facing SMART apps) planned but not launched. Requires production identity provider configuration."
+    },
+    {
+      "id": "REQ-007",
+      "category": "Operations",
+      "statement": "Production runs on SQL Server infrastructure clinic already operates. Data stays on-premise per compliance policy.",
+      "source": "Clinic IT infrastructure, docs/SchemaMigrationGuide.md",
+      "priority": "must",
+      "satisfiedBy": ["F-008"],
+      "gap": null
+    },
+    {
+      "id": "REQ-008",
+      "category": "Regulatory",
+      "statement": "Exchanged patient data must conform to US Core and payer IG profiles for interoperability with insurance and prior-auth systems.",
+      "source": "Regulatory requirement for payer exchange, docs/rest/Readme.md",
+      "priority": "should",
+      "satisfiedBy": [],
+      "gap": "Profile validation (F-012) planned. Fixtures exist in docs/rest, but MidSizedClinic validation rules not configured."
+    },
+    {
+      "id": "REQ-009",
+      "category": "Compliance (Audit)",
+      "statement": "Every access to PHI must be logged with who, what, when for HIPAA compliance audit. Monthly audit reports to compliance officer.",
+      "source": "HIPAA Security Rule 45 CFR §164.312(b), clinic audit policy",
+      "priority": "must",
+      "satisfiedBy": ["F-001"],
+      "gap": "F-001 logs operations; clinic needs runbook on structured log parsing + monthly audit report generation"
+    }
+  ]
+}

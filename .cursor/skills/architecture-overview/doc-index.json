@@ -1,0 +1,110 @@
+{
+  "docIndex": [
+    {
+      "topic": "Project conventions & layers",
+      "path": "AGENTS.md",
+      "note": "API → Core → persistence; testing; ADR location"
+    },
+    {
+      "topic": "Search & persistence",
+      "path": "docs/SearchArchitecture.md",
+      "note": "Extraction, normalized search values, query path"
+    },
+    {
+      "topic": "Authentication & security",
+      "path": "docs/Authentication.md",
+      "note": "Runtime JWT, development identity provider"
+    },
+    {
+      "topic": "GET request flow (diagram)",
+      "path": "docs/flow diagrams/read-resource.md",
+      "note": "Mermaid: Client → Controller → Handler → IFhirDataStore"
+    },
+    {
+      "topic": "POST request flow (diagram)",
+      "path": "docs/flow diagrams/create-resource.md",
+      "note": "Mermaid: includes SearchIndexer before Upsert"
+    },
+    {
+      "topic": "SQL search path",
+      "path": "docs/flow diagrams/search-sql-server.md",
+      "note": "Search against SQL backend"
+    },
+    {
+      "topic": "Cosmos search path",
+      "path": "docs/flow diagrams/search-cosmos-db.md",
+      "note": "Search against Cosmos backend"
+    },
+    {
+      "topic": "Bulk import ($import)",
+      "path": "docs/BulkImport.md",
+      "note": "NDJSON ingress; production PHI analog"
+    },
+    {
+      "topic": "Bulk export",
+      "path": "docs/BulkExport.md",
+      "note": "Data egress patterns"
+    },
+    {
+      "topic": "ADR index",
+      "path": "docs/arch/Readme.md",
+      "note": "Architectural decision records"
+    },
+    {
+      "topic": "SQL schema migrations",
+      "path": "docs/SchemaMigrationGuide.md",
+      "note": "Hand-authored schema under SqlServer/Features/Schema"
+    },
+    {
+      "topic": "Persistence abstraction",
+      "path": "src/Microsoft.Health.Fhir.Core/Features/Persistence/IFhirDataStore.cs",
+      "note": "Upsert, Get, Merge, HardDelete"
+    },
+    {
+      "topic": "API entry point",
+      "path": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/FhirController.cs",
+      "note": "REST surface; dispatches via IMediator"
+    },
+    {
+      "topic": "GET handler example",
+      "path": "src/Microsoft.Health.Fhir.Shared.Core/Features/Resources/Get/GetResourceHandler.cs",
+      "note": "Authorization then IFhirDataStore"
+    },
+    {
+      "topic": "SQL persistence impl",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlServerFhirDataStore.cs",
+      "note": "IFhirDataStore for SQL Server"
+    },
+    {
+      "topic": "Cosmos persistence impl",
+      "path": "src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/CosmosFhirDataStore.cs",
+      "note": "IFhirDataStore for Cosmos DB"
+    },
+    {
+      "topic": "PHI access boundary",
+      "path": ".cursorignore",
+      "note": "Agent cannot read Patient fixtures, ndjson, credentials"
+    }
+  ],
+  "staleDocs": [
+    {
+      "path": "docs/RunningTheProject.md",
+      "issue": "References net6.0; repo targets net10.0 per global.json"
+    },
+    {
+      "path": "AGENTS.md",
+      "issue": "Says MediatR; codebase uses Medino namespace (same handler pattern)"
+    }
+  ],
+  "missingDocs": [
+    {
+      "path": "docs/architecture.md",
+      "issue": "No single architecture overview doc — use AGENTS.md + flow diagrams + this Canvas"
+    }
+  ],
+  "counts": {
+    "docsMd": 66,
+    "flowDiagrams": 9,
+    "adrs": 24
+  }
+}

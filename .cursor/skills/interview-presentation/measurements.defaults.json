@@ -1,0 +1,12 @@
+{
+  "caption": "Illustrative agent eval · convention adherence 0–100 · Δ vs main-only baseline (~57.5)",
+  "baselineAggregate": 57.5,
+  "conventions": ["PHI boundary", "Layering", "Shared/#if", "Tests"],
+  "runs": [
+    { "run": 1, "scores": [92, 88, 84, 90] },
+    { "run": 2, "scores": [95, 91, 86, 88] },
+    { "run": 3, "scores": [90, 93, 89, 92] },
+    { "run": 4, "scores": [96, 90, 91, 94] },
+    { "run": 5, "scores": [94, 94, 90, 93] }
+  ]
+}
