@@ -32,19 +32,19 @@ To point the Express demo at either stack: [switch-app-to-local](../switch-app-t
 
 Auto-runs on **push/PR to `main`** (checks out that event’s ref).
 
-**Manual — pick a branch** (once `main` holds both pre-demo and post-demo overlays, use this to deploy a feature branch onto post-demo without merging first):
+**Manual — pick a branch** (dropdown; create `post-change` when you are ready — listed here for the demo):
 
 ```bash
-# Actions UI: Actions → Deploy to Dev → Run workflow → set "ref"
+# Actions UI: Actions → Deploy to Dev → Run workflow → choose main | post-change
 # Or CLI:
-gh workflow run deploy-to-dev.yml -f ref=fix/my-feature
+gh workflow run deploy-to-dev.yml -f ref=post-change
 gh run list --workflow=deploy-to-dev.yml --limit 5
 gh run watch
 ```
 
 | Input | Meaning |
 |-------|---------|
-| `ref` | Branch or tag to checkout for Tests + Deploy (default `main`) |
+| `ref` | Choice: `main` or `post-change` (default `main`) |
 
 | Job | Role |
 |-----|------|

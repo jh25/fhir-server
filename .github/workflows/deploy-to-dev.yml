@@ -8,14 +8,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Manual: pick which branch/tag to build onto post-demo (main holds both pre + post overlays).
+  # Manual: pick which branch to build onto post-demo (main holds both pre + post overlays).
   workflow_dispatch:
     inputs:
       ref:
-        description: Git branch or tag to deploy to post-demo (e.g. main, fix/feature-x)
+        description: Branch to deploy to post-demo
         required: true
+        type: choice
+        options:
+          - main
+          - post-change
         default: main
-        type: string
 
 concurrency:
   group: deploy-to-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.inputs.ref || '' }}
