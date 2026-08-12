@@ -8,9 +8,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual: pick which branch/tag to build onto post-demo (main holds both pre + post overlays).
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git branch or tag to deploy to post-demo (e.g. main, fix/feature-x)
+        required: true
+        default: main
+        type: string
 
 concurrency:
-  group: deploy-to-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: deploy-to-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.inputs.ref || '' }}
   cancel-in-progress: true
 
 env:
@@ -29,6 +37,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # push/PR → event ref; workflow_dispatch → chosen branch/tag
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
       - name: Setup .NET SDK (global.json)
         uses: actions/setup-dotnet@v4
@@ -84,6 +95,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+      - name: Show deploy ref
+        run: |
+          echo "event=${{ github.event_name }} inputs.ref=${{ inputs.ref || '(n/a)' }} github.ref=${{ github.ref }}"
+          git rev-parse --short HEAD
+          git log -1 --oneline
 
       - name: Docker Compose up (post-demo on :8081)
         run: |

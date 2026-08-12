@@ -30,17 +30,30 @@ To point the Express demo at either stack: [switch-app-to-local](../switch-app-t
 
 ## Path A — CI
 
+Auto-runs on **push/PR to `main`** (checks out that event’s ref).
+
+**Manual — pick a branch** (once `main` holds both pre-demo and post-demo overlays, use this to deploy a feature branch onto post-demo without merging first):
+
 ```bash
+# Actions UI: Actions → Deploy to Dev → Run workflow → set "ref"
+# Or CLI:
+gh workflow run deploy-to-dev.yml -f ref=fix/my-feature
 gh run list --workflow=deploy-to-dev.yml --limit 5
 gh run watch
 ```
 
+| Input | Meaning |
+|-------|---------|
+| `ref` | Branch or tag to checkout for Tests + Deploy (default `main`) |
+
 | Job | Role |
 |-----|------|
 | Tests | ImagingStudy MTP gate (exit 5/8 OK if none) |
-| Deploy | `post-demo` → `/metadata` on `:8081` → `down -v` |
+| Deploy | `post-demo` → `/metadata` on `:8081` → `down -v` (CI runner tears down; local Path B leaves up) |
 
 ## Path B — Local parity (leave post-demo up)
+
+Checkout the branch you want **first**, then run (no branch flag — uses the working tree):
 
 ```bash
 bash .cursor/skills/deploy-to-dev/scripts/deploy-local-parity.sh
