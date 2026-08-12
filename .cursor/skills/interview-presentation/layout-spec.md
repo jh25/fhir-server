@@ -102,6 +102,7 @@ Each card:
 |--------------|-----------------|
 | `local-setup` | DevOps |
 | `local-teardown` | DevOps |
+| `deploy-to-dev` | DevOps |
 | `pre-review-patterns` | QA |
 | `strengthen-tests` | QA |
 | `execute-qa-tasks` | QA |

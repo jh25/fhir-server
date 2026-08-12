@@ -34,7 +34,7 @@ For Fast Healthcare Interoperability Resources (FHIR) Server system architecture
 
 1. The Problem (ramp time, convention drift, review burden) — plain English
 2. The Solution (four kit layers: boundary + rules + skills + MCP)
-3. Multi-role Entry Points (same kit, different doors: setup, architecture, demo tasks, tests)
+3. Multi-role Entry Points (same kit, different doors: setup, deploy-to-dev, architecture, demo tasks, tests)
 4. Account Value (land → expand → retain)
 
 **Before section 1**, under the title: a short **Why this repo first** frame
