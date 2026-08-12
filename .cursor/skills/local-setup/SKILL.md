@@ -76,9 +76,9 @@ docker compose `
 
 CI supplies `ASSEMBLY_VER` from GitVersion; locally it's empty, and `dotnet publish` dies with MSB4044: `The "GetAssemblyVersion" task was not given a value for the required parameter "NuGetVersion".` That's a stock .NET SDK target (`Microsoft.NET.GenerateAssemblyInfo.targets`) reacting to an empty `Version`/`AssemblyVersion`, not something specific to this repo - it'll happen to any project built this way. `docker-compose.local.yaml` pins `ASSEMBLY_VER=1.0.0` so this never comes up.
 
-`midsizedclinic-demo-app/docker-compose.demo.yaml` publishes **`1433:1433`** so the host Express demo can reach SQL. Without it, `docker-sql-1` only has container-internal `1433/tcp` and the demo reports `SQL connectivity: down`.
+`midsizedclinic-demo-app/docker-compose.demo.yaml` publishes **`1433:1433`** so the host Express demo can reach SQL. Without it, `pre-demo-sql` only has container-internal `1433/tcp` and the demo reports `SQL connectivity: down`.
 
-Confirm: `docker ps` shows `0.0.0.0:1433->1433/tcp` on `docker-sql-1`.
+Confirm: `docker ps` shows `0.0.0.0:1433->1433/tcp` on **`pre-demo-sql`** (compose project **`pre-demo`**). Deploy to Dev uses a separate **`post-demo`** stack on `:8081`/`:1434` and does not replace these containers.
 
 ## 5. Verify FHIR API
 

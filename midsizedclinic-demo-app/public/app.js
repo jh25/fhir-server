@@ -8,6 +8,7 @@
   const metaEl = document.getElementById('meta');
   const bodyEl = document.getElementById('studiesBody');
   const sqlStatusEl = document.getElementById('sqlStatus');
+  const envBadgeEl = document.getElementById('envBadge');
   const bannerPatientIdEl = document.getElementById('bannerPatientId');
   const bannerEncounterEl = document.getElementById('bannerEncounter');
   const bannerSubjectRefEl = document.getElementById('bannerSubjectRef');
@@ -288,6 +289,13 @@
     try {
       const res = await fetch('/health');
       const data = await res.json();
+      if (envBadgeEl && data.label) {
+        envBadgeEl.textContent = data.label;
+        envBadgeEl.dataset.target = data.target === 'dev' ? 'dev' : 'local';
+        envBadgeEl.title = data.stack
+          ? `${data.stack} via ${data.how || data.backend}`
+          : '';
+      }
       if (data.sql === 'up') {
         sqlStatusEl.textContent = 'DB connected';
         sqlStatusEl.className = 'sys-status up';

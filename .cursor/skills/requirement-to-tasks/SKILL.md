@@ -68,11 +68,23 @@ Answer one at a time when possible:
 
 4. Scope boundary this pass?
    Server only · Demo app only · Server + demo · Discovery only (no code plan)
-
-5. Constraints? (HIPAA/PHI, no hard-delete, leave Design: SQL until REST wired, deadline, …)
 ```
 
-If the requirement is already in the user message, lock it and continue from 2–5.
+If the requirement is already in the user message, lock it and continue from 2–4.
+
+**Do not ask for constraints.** Standing MidSizedClinic rules always apply and are baked into every plan (see **Standing constraints** below and SDLC gates). Optional deadlines or one-off product choices may appear in the requirement text itself — do not invent a fifth prompt for them.
+
+### Standing constraints (from rules — never prompt)
+
+| Constraint | Source |
+|------------|--------|
+| Medino / `IFhirDataStore` / authz-first; no business logic in controllers | FHIR-00 |
+| No PHI in logs; compartment preserved; audit context on store calls | FHIR-01 |
+| xUnit + NSubstitute; AAA; unit vs E2E not duplicated | FHIR-02 |
+| Imaging check-in REST contracts (compartment, required fields, roles, audit) | FHIR-10–13 / MIDSIZEDCLINIC-10–13 |
+| Keep `#design-indicator` honest: `Design: SQL` until the worklist uses FHIR REST, then `Design: FHIR` | Demo app convention |
+| Do not hard-delete `dbo.Resource` to “unregister” a type | [remove-fhir-resource-type](../remove-fhir-resource-type/SKILL.md) |
+| Do not invent upstream Microsoft roadmap items | product-owner / anti-patterns |
 
 ## Workflow
 
@@ -221,7 +233,7 @@ Expand each into full task cards using the template above when executing this sk
 
 ## Done when
 
-- [ ] Prompts answered; clinic + tech restatement present
+- [ ] Prompts 1–4 answered; clinic + tech restatement present; standing constraints applied from rules (not prompted)
 - [ ] Discrete tasks with dependencies
 - [ ] Every code task has paired QA automation upfront
 - [ ] Skills/patterns linked per task

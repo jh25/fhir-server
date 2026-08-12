@@ -8,7 +8,8 @@ Companion to [SKILL.md](SKILL.md).
 2. Primary audience? (PM / eng / QA / all)
 3. Version? (R4 default)
 4. Scope? (server · demo · both · discovery)
-5. Constraints?
+
+Do **not** ask for constraints — FHIR-00/01/02, FHIR-10–13, Design indicator honesty, and no hard-delete of `dbo.Resource` always apply (see SKILL standing constraints + SDLC gates).
 
 ## Dual restatement
 

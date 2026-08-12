@@ -1,0 +1,148 @@
+# MidSizedClinic — Deploy to Dev (post-demo stack, parallel with Tests).
+# post-demo = Deploy to Dev (:8081/:1434). pre-demo = local-setup (:8080/:1433).
+# Required status check name (branch protection): "Deploy"
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Manual: pick which branch/tag to build onto post-demo (main holds both pre + post overlays).
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git branch or tag to deploy to post-demo (e.g. main, fix/feature-x)
+        required: true
+        default: main
+        type: string
+
+concurrency:
+  group: deploy-to-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.inputs.ref || '' }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SAPASSWORD: L0cal-Dev-Pwd1
+  FHIR_DEPLOY_PORT: "8081"
+
+jobs:
+  # Gate. MTP args after `--` (not VSTest --filter/--logger).
+  # Exit 5/8 = zero ImagingStudy matches — allowed until tests are wired.
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # push/PR → event ref; workflow_dispatch → chosen branch/tag
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore test projects
+        run: |
+          dotnet restore src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj
+          dotnet restore test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj
+
+      - name: Test — ImagingStudy scope (MTP)
+        run: |
+          set -euo pipefail
+          run_filtered() {
+            local proj="$1"
+            local code=0
+            echo "=== $proj ==="
+            set +e
+            dotnet test "$proj" \
+              --configuration Release \
+              --no-restore \
+              -- \
+              --treenode-filter "*ImagingStudy*" \
+              --report-trx \
+              --results-directory TestResults \
+              --ignore-exit-code "5;8"
+            code=$?
+            set -e
+            if [[ "$code" -eq 0 || "$code" -eq 5 || "$code" -eq 8 ]]; then
+              echo "Tests gate OK for $proj (exit $code — 5/8 means zero ImagingStudy matches)"
+              return 0
+            fi
+            echo "ERROR: test run failed for $proj with exit $code" >&2
+            return "$code"
+          }
+          run_filtered src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj
+          run_filtered test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-to-dev-test-results
+          path: TestResults/**
+          if-no-files-found: ignore
+
+  # Parallel with Tests. Own compose project + ports — does not replace local-setup stack.
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+      - name: Show deploy ref
+        run: |
+          echo "event=${{ github.event_name }} inputs.ref=${{ inputs.ref || '(n/a)' }} github.ref=${{ github.ref }}"
+          git rev-parse --short HEAD
+          git log -1 --oneline
+
+      - name: Docker Compose up (post-demo on :8081)
+        run: |
+          set -euo pipefail
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+            up -d --build
+
+      - name: Smoke test — GET /metadata == 200
+        run: |
+          set -euo pipefail
+          port="${FHIR_DEPLOY_PORT}"
+          echo "Waiting for FHIR /metadata on :${port} (post-demo) ..."
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /tmp/fhir-metadata.json -w "%{http_code}" "http://localhost:${port}/metadata" || true)
+            if [ "$code" = "200" ]; then
+              echo "metadata OK (attempt $i)"
+              head -c 200 /tmp/fhir-metadata.json || true
+              echo
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code — retry in 5s"
+            sleep 5
+          done
+          echo "ERROR: /metadata did not return 200 within ~5 minutes"
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+            ps || true
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+            logs --tail=80 fhir-api || true
+          exit 1
+
+      - name: Docker Compose down (post-demo only)
+        if: always()
+        run: |
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+            down -v || true

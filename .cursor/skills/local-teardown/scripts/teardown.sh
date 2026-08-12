@@ -19,7 +19,7 @@ compose_args=(-f samples/docker/docker-compose.yaml -f "$skill_dir/docker-compos
 report() {
   local label="$1"
   local running
-  running="$(docker ps --filter "name=docker-fhir-api" --filter "name=docker-sql" --format '{{.Names}}\t{{.Status}}')"
+  running="$(docker ps --filter "name=pre-demo-fhir-api" --filter "name=pre-demo-sql" --format '{{.Names}}\t{{.Status}}')"
   if [[ -z "$running" ]]; then
     echo "$label: nothing running."
   else

@@ -1,0 +1,25 @@
+# post-demo stack — Deploy to Dev (FHIR :8081, SQL :1434).
+# Alongside pre-demo (local-setup :8080/:1433). local-teardown does NOT remove these.
+#
+#   docker compose \
+#     -f samples/docker/docker-compose.yaml \
+#     -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+#     up -d --build
+#
+# Smoke: http://localhost:8081/metadata
+name: post-demo
+
+services:
+  fhir-api:
+    container_name: post-demo-fhir-api
+    build:
+      args:
+        ASSEMBLY_VER: "1.0.0"
+    environment:
+      FHIRServer__Security__Authentication__Authority: "https://localhost/unused"
+    ports: !override
+      - "8081:8080"
+  sql:
+    container_name: post-demo-sql
+    ports: !override
+      - "1434:1433"

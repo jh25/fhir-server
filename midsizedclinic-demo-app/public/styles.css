@@ -146,6 +146,12 @@ code {
   border: 1px solid #8a6d1f;
 }
 
+.env-badge[data-target='dev'] {
+  background: #1a2f4a;
+  color: #9ecbff;
+  border-color: #3d6a9e;
+}
+
 .design-indicator {
   font-size: 0.68rem;
   font-weight: 700;
