@@ -1,0 +1,80 @@
+---
+description: >-
+  FHIR-01 — MANDATORY PHI/HIPAA safety: NEVER log PHI, NEVER use test fixtures
+  in prod, MUST respect compartments, MUST carry BundleResourceContext for audit.
+  Microsoft FHIR Server rule set. MidSizedClinic imaging rules: FHIR-10 through FHIR-13.
+alwaysApply: true
+---
+
+# FHIR-01 — PHI Safety (Mandatory, HIPAA)
+
+You are working in a HIPAA-regulated healthcare system. These rules are non-negotiable. Violations create audit failures, regulatory exposure, and potential PHI disclosure.
+
+## 1. Never Log PHI
+
+**NEVER** log patient names, MRNs, diagnoses, medical findings, birth dates, contact info, or any field that identifies a patient or their clinical data.
+
+**ALWAYS** log only non-PHI identifiers: user ID, action type, resource ID, resource type, timestamp, correlation ID.
+
+```csharp
+// ❌ HIPAA violation — PHI in log message
+_logger.LogInformation($"Created imaging for {patient.Name}");
+
+// ✅ Compliant — identifiers only
+_logger.LogInformation("ImagingStudy created. ResourceId={ResourceId}", resourceId);
+```
+
+| SAFE to log | NEVER log |
+|---|---|
+| User ID, action type, resource ID, resource type, timestamp, correlation ID | Patient name, MRN, diagnosis, findings, age, address, phone, SSN, any clinical narrative |
+
+**If violated:** PHI lands in log aggregators (Splunk, App Insights, CloudWatch). Log retention makes deletion impossible. HIPAA audit fails. Incident response and breach notification may be required.
+
+## 2. Never Use PHI Test Fixtures in Production Code
+
+Test fixtures (`Patient*.json`, `SmartPatient*.json`, `*.ndjson` bundles, `docs/rest/Data/*Patient*.json`) exist for tests ONLY.
+
+- **NEVER** read, embed, or reference test fixture files from production handlers, services, or API code.
+- **NEVER** hardcode sample patient data from `TestFiles/` into non-test code paths.
+- **MUST** use `.cursorignore`-blocked paths only in test projects — never wire them into runtime.
+
+**If violated:** synthetic PHI ships in production binaries, agents may surface fixture data in responses, and test data patterns leak into live code paths.
+
+## 3. Compartment Boundaries
+
+Users MUST access only resources within their authorized compartment.
+
+- **ALWAYS** route patient-scoped queries through compartment APIs (e.g. `GET /Patient/{id}/ImagingStudy` returns **that patient's** studies only).
+- **NEVER** bypass, disable, or weaken compartment filters in handlers or data store calls.
+- **NEVER** return cross-patient results from a single-patient compartment request.
+- **MUST** trust `IFhirDataStore` to enforce compartments — do not reimplement or skip enforcement in Core/API.
+
+**If violated:** cross-patient PHI disclosure (minimum-necessary violation), failed compliance audit, and unauthorized access to imaging/clinical records.
+
+## 4. Carry Audit Context Through All Operations
+
+Every persistence operation **MUST** include audit context so access is traceable.
+
+- **ALWAYS** pass `BundleResourceContext` (or equivalent `ResourceContext`) to `IFhirDataStore` on Upsert/Get paths that support it.
+- **NEVER** call `FhirDataStore.UpsertAsync`, `GetAsync`, or bulk operations without the context parameter when the API accepts it.
+- **MUST** preserve context through handler → data store → audit pipeline unchanged.
+
+```csharp
+// ✅ Required — audit trail intact
+await FhirDataStore.UpsertAsync(wrapper, bundleContext, cancellationToken);
+```
+
+**If violated:** PHI access is untraceable. HIPAA §164.312(b) audit controls fail. Compliance officer cannot produce who-accessed-what-when reports. Forensics after an incident are impossible.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| PHI in log messages or exception text | HIPAA breach via log storage |
+| Test fixture paths in production code | Synthetic PHI in runtime |
+| Compartment filter bypass | Cross-patient data leak |
+| Data store calls without audit context | Untraceable PHI access |
+
+When reviewing code, **FLAG any PHI in logs or missing audit context** before merging. Treat violations as release blockers.

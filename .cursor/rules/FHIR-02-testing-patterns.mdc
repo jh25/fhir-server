@@ -1,0 +1,126 @@
+---
+description: >-
+  FHIR-02 — MANDATORY testing: xUnit + NSubstitute only, Arrange-Act-Assert,
+  unit vs E2E scope,   mock external deps only. Microsoft FHIR Server rule set.
+  MidSizedClinic imaging rules: FHIR-10 through FHIR-13.
+alwaysApply: true
+---
+
+# FHIR-02 — Testing Patterns (Mandatory, Build Requirements)
+
+These are CI requirements, not preferences. Violations fail the build, waste review time, or produce tests that prove nothing.
+
+## Framework — Non-Negotiable
+
+| MUST use | MUST NOT use |
+|---|---|
+| **xUnit** (`[Fact]`, `[Theory]`) | NUnit, MSTest |
+| **NSubstitute** (`Substitute.For<T>()`) | Moq, FakeItEasy, manual fakes for interfaces |
+| **Arrange-Act-Assert** in every test | Mixed setup/assert spaghetti, multiple Acts |
+
+- **ALWAYS** use xUnit. **NEVER** use NUnit or MSTest — they are not referenced; CI will not discover or run them.
+- **ALWAYS** use NSubstitute for mocks. **NEVER** use Moq — it is not in this repo's package graph.
+- **MUST** structure every test: Arrange → Act → Assert (or Act+Assert for exception tests). One logical behavior per test.
+
+**If violated:** tests do not compile or run in CI; PR checks fail; reviewers reject non-standard frameworks.
+
+## Scope — Unit vs E2E
+
+**Unit tests (handlers / Core logic):**
+- **ALWAYS** test handler and Core logic without database and without HTTP.
+- **ALWAYS** mock external dependencies: `IFhirDataStore`, `IAuthorizationService<DataActions>`, etc.
+- **NEVER** hit SQL, Cosmos, or a real `HttpClient` in a unit test.
+- **NEVER** mock the system under test (SUT).
+- **NEVER** unit-test ASP.NET routing, xUnit internals, or FHIR library serialization.
+
+**E2E tests (HTTP layer):**
+- **ALWAYS** test full HTTP paths through the test host / `FhirClient` fixture.
+- **NEVER** duplicate the same handler logic in both unit and E2E — unit proves logic; E2E proves wiring.
+
+**If violated:** "unit" tests become slow, flaky integration tests; CI times explode; failures are non-deterministic.
+
+## Naming — MUST Describe the Scenario
+
+- **ALWAYS** name tests `{Method}_{Condition}_{ExpectedOutcome}`.
+- **NEVER** name tests `Test1`, `TestCreate`, or `HandlerTest`.
+
+```csharp
+public async Task Create_WithValidPatient_ReturnsCreatedStatus()
+public async Task Get_WhenUnauthorized_ThrowsUnauthorizedFhirActionException()
+```
+
+**If violated:** failing tests are unreadable in CI logs; nobody knows what broke.
+
+## Unit Test — Required Shape
+
+```csharp
+[Fact]
+public async Task Create_WithValidPatient_ReturnsCreatedStatus()
+{
+    // Arrange
+    var store = Substitute.For<IFhirDataStore>();
+    var authz = Substitute.For<IAuthorizationService<DataActions>>();
+    store.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+        .Returns(upsertOutcome);
+    var sut = new CreateResourceHandler(store, /* ... */, authz);
+    var request = new CreateResourceRequest(patientElement, bundleContext);
+
+    // Act
+    UpsertResourceResponse response = await sut.HandleAsync(request, CancellationToken.None);
+
+    // Assert
+    Assert.Equal(SaveOutcomeType.Created, response.Outcome.Outcome);
+    await authz.Received(1).CheckAccess(DataActions.Create, Arg.Any<CancellationToken>());
+    await store.Received(1).UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
+}
+```
+
+```csharp
+[Fact]
+public async Task Get_WhenStoreReturnsNull_ThrowsResourceNotFoundException()
+{
+    // Arrange
+    var store = Substitute.For<IFhirDataStore>();
+    store.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+        .Returns((ResourceWrapper)null);
+    var sut = new GetResourceHandler(store, /* ... */);
+
+    // Act + Assert
+    await Assert.ThrowsAsync<ResourceNotFoundException>(
+        () => sut.HandleAsync(new GetResourceRequest(key), CancellationToken.None));
+}
+```
+
+## E2E Test — Required Shape
+
+```csharp
+[Fact]
+public async Task CreatePatient_Post_Returns201WithLocation()
+{
+    // Arrange
+    var client = _fixture.GetFhirClient();
+    var patient = Samples.GetDefaultPatient();
+
+    // Act
+    FhirResponse<Patient> response = await client.CreateAsync(patient);
+
+    // Assert
+    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    Assert.NotNull(response.Headers.Location);
+}
+```
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| Moq, NUnit, MSTest | Does not compile or run in CI |
+| SQL/HTTP in unit tests | Flaky, slow pipeline |
+| Mocking the SUT | Test proves nothing |
+| Testing framework/library internals | False confidence, brittle tests |
+| `Test1` / vague names | Unactionable CI failures |
+| Duplicate unit + E2E coverage of same logic | Wasted maintenance, double failures |
+
+**MUST** build and fix all test project errors before opening a PR. Treat non-compliant tests as merge blockers.

@@ -15,11 +15,24 @@
     "storageBackends": ["SQL Server (MidSizedClinic default)", "Azure Cosmos DB (optional scale)"],
     "complianceContext": "HIPAA-regulated. Patient identifiers and imaging reports are PHI. All access must be authenticated and auditable. Bulk import of legacy patient data requires anonymization or explicit consent logging."
   },
+  "provenance": {
+    "shippedFeatures": "Verified against src/ and docs/ in this repo",
+    "requirements": "MidSizedClinic clinic-workflow.md + HIPAA policy",
+    "upstreamBacklog": "Live fetch via GitHub MCP — see upstream-sources.json; never edit by hand"
+  },
+  "upstreamBacklog": {
+    "_note": "Populated at skill runtime by GitHub MCP. Empty here by design.",
+    "owner": "microsoft",
+    "repo": "fhir-server",
+    "fetchedAt": null,
+    "issues": []
+  },
   "features": [
     {
       "id": "F-001",
       "name": "FHIR R4 REST API — CRUD operations",
       "status": "shipped",
+      "provenance": "verified-in-repo",
       "doc": "docs/flow diagrams/create-resource.md",
       "code": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/FhirController.cs",
       "userStory": "As a clinic technician, I want to create patient records and store imaging studies via standard REST calls so that our worklist app doesn't require custom database knowledge.",
@@ -191,7 +204,8 @@
       "source": "Patient engagement initiative, docs/SMARTonFHIR.md",
       "priority": "should",
       "satisfiedBy": ["F-007"],
-      "gap": "F-013 (patient-facing SMART apps) planned but not launched. Requires production identity provider configuration."
+      "gap": "Patient-facing SMART apps not launched at clinic. Search upstream: SMART patient portal issues on microsoft/fhir-server.",
+      "upstreamSearch": "repo:microsoft/fhir-server is:issue SMART patient portal"
     },
     {
       "id": "REQ-007",
@@ -209,7 +223,8 @@
       "source": "Regulatory requirement for payer exchange, docs/rest/Readme.md",
       "priority": "should",
       "satisfiedBy": [],
-      "gap": "Profile validation (F-012) planned. Fixtures exist in docs/rest, but MidSizedClinic validation rules not configured."
+      "gap": "US Core profile validation not configured at clinic. Check upstream issues for profile/validation work.",
+      "upstreamSearch": "repo:microsoft/fhir-server is:issue US Core profile validation"
     },
     {
       "id": "REQ-009",

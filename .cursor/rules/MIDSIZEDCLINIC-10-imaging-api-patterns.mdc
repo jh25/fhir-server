@@ -1,0 +1,95 @@
+---
+description: >-
+  FHIR-10 — MANDATORY MidSizedClinic imaging API conventions: compartment search,
+  required ImagingStudy fields, DiagnosticReport linkage, role-scoped access,
+  standard FHIR responses. Applies to ImagingStudy/DiagnosticReport endpoints.
+globs: >-
+  **/*ImagingStudy*,**/*DiagnosticReport*,**/Controllers/**,**/clinic-workflow.md
+alwaysApply: false
+---
+
+# FHIR-10 — MidSizedClinic Imaging API Patterns (Mandatory)
+
+MidSizedClinic imaging endpoints MUST conform to these conventions. **VERA-1042** (tech worklist imaging endpoint) is the reference implementation — every new imaging endpoint MUST match this contract.
+
+Applies in addition to **FHIR-00**, **FHIR-01**, **FHIR-02**. Clinic workflow: [clinic-workflow.md](../skills/product-owner-overview/clinic-workflow.md).
+
+## 1. Compartment Search — Required on Every Imaging Endpoint
+
+- **ALWAYS** expose patient-scoped study retrieval: `GET /Patient/{id}/ImagingStudy`.
+- **ALWAYS** return **only** ImagingStudy resources where `ImagingStudy.subject` references that Patient — no cross-patient results.
+- **NEVER** implement a flat `GET /ImagingStudy` worklist for technicians without a required `patient` or compartment filter.
+- **MUST** use FHIR compartment semantics (Patient compartment includes ImagingStudy by `subject`) — do not bypass with custom SQL filters in Core/API.
+
+**VERA-1042:** Tech worklist loads prior studies via `GET /Patient/{patientId}/ImagingStudy?_sort=-started` — this path is mandatory, not optional.
+
+**If violated:** technicians see other patients' imaging (HIPAA minimum-necessary breach); worklist shows wrong history; audit fails compartment review.
+
+## 2. ImagingStudy — Required Fields on Create/Update
+
+Every `POST`/`PUT` ImagingStudy **MUST** include:
+
+| Element | FHIR path | Requirement |
+|---|---|---|
+| Status | `ImagingStudy.status` | **MUST** be set (`registered`, `available`, `cancelled`, etc.) — never omit |
+| Modality | `ImagingStudy.modality` | **MUST** include at least one `Coding` (e.g. `US` for ultrasound) |
+| Started | `ImagingStudy.started` | **MUST** be ISO 8601 dateTime of capture |
+| Description | `ImagingStudy.description` | **MUST** be human-readable study context (e.g. "Abdominal ultrasound — routine") |
+
+- **ALWAYS** set `ImagingStudy.subject` to `Patient/{id}`.
+- **NEVER** create an ImagingStudy without all four fields — reject with `OperationOutcome` (`issue.code`: `required`).
+- **NEVER** store PHI in `description` beyond clinical study context needed for the worklist (no full narrative reports — those belong in DiagnosticReport).
+
+**If violated:** worklist cannot sort/filter; radiologists cannot triage; invalid resources break search indexing.
+
+## 3. DiagnosticReport — MUST Link to ImagingStudy
+
+- **ALWAYS** create DiagnosticReport with `subject` → `Patient/{id}` (same patient as the study).
+- **MUST** link to the source study via `DiagnosticReport.basedOn` → `ImagingStudy/{id}` **OR** equivalent `ImagingStudy` reference in `study` — **never** an orphan report.
+- **NEVER** publish a DiagnosticReport without a resolvable link to the ImagingStudy it interprets.
+- **MUST** set `DiagnosticReport.status` (`preliminary`, `final`, `amended`) and `issued` when finalized.
+
+**If violated:** reports cannot be traced to source imaging; referrer integration breaks; compliance cannot prove study-report chain.
+
+## 4. Role-Based Access — Technicians vs Radiologists
+
+Map MidSizedClinic roles in identity provider → `roles.json` data actions:
+
+| Role | ImagingStudy | DiagnosticReport |
+|---|---|---|
+| **Technician** (`clinicTechnician`) | **CREATE**, **READ** (compartment) | **READ** only (prior reports for context) |
+| **Radiologist** (`clinicRadiologist`) | **READ** only | **CREATE**, **READ**, **UPDATE** (author/report) |
+
+- **Technicians MUST NOT** create, update, or finalize DiagnosticReport.
+- **Radiologists MUST NOT** create or update ImagingStudy (capture is technician-owned).
+- **NEVER** grant `write` on ImagingStudy to radiologist roles or `write` on DiagnosticReport to technician roles.
+- **MUST** enforce via `AuthorizationService.Check*Access` in handlers **before** any data access (per FHIR-00).
+
+**If violated:** wrong clinician modifies clinical record (scope-of-practice + HIPAA); audit shows unauthorized actor on PHI.
+
+## 5. Response Format — Standard FHIR Only
+
+- **ALWAYS** return `Content-Type: application/fhir+json` (or `xml` if negotiated).
+- **MUST** return a FHIR `Resource` for single reads/creates/updates — not raw DTOs or anonymous JSON shapes.
+- **MUST** return a FHIR `Bundle` (`type`: `searchset`) for compartment/search results with `link` pagination.
+- **MUST** return `OperationOutcome` on errors with FHIR issue severity/code/diagnostics — **NEVER** plain-text stack traces or custom error envelopes.
+- **MUST** include `Location` header on `201 Created` for new ImagingStudy/DiagnosticReport.
+
+**If violated:** SMART/referrer clients cannot parse responses; certification against FHIR REST spec fails; E2E tests break.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| Cross-patient ImagingStudy in compartment results | HIPAA breach; VERA-1042 worklist shows wrong patient |
+| ImagingStudy missing status, modality, started, or description | Broken worklist; failed validation |
+| DiagnosticReport without `basedOn`/study link to ImagingStudy | Orphan report; broken clinical chain |
+| Technician POST to DiagnosticReport | Unauthorized clinical documentation |
+| Radiologist POST/PUT to ImagingStudy | Unauthorized capture modification |
+| Non-FHIR JSON response bodies | Interop failure; SMART apps break |
+| Custom `/api/worklist` bypassing FHIR compartment search | Duplicates logic; bypasses auth/compartment enforcement |
+| Business logic in controllers for imaging endpoints | Violates FHIR-00; untestable |
+
+When implementing **VERA-1042** or any imaging endpoint, verify compartment search, required fields, role matrix, and FHIR response shape in unit **and** E2E tests before merge.

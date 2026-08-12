@@ -1,0 +1,129 @@
+---
+description: >-
+  FHIR-13 — MANDATORY MidSizedClinic imaging HIPAA audit: log all ImagingStudy/
+  DiagnosticReport access, failed compartment attempts, no PHI in audit records,
+  BundleResourceContext on every operation. 45 CFR §164.312(b).
+globs: >-
+  **/*ImagingStudy*,**/*DiagnosticReport*,**/*Audit*,**/*Telemetry*,**/clinic-workflow.md
+alwaysApply: false
+---
+
+# FHIR-13 — MidSizedClinic Imaging Audit & Compliance (Mandatory)
+
+MidSizedClinic **MUST NOT ship** imaging features without complete audit trails. Regulatory basis: **HIPAA Security Rule — 45 CFR §164.312(b)** (audit controls: record and examine activity in systems that contain or use ePHI).
+
+Applies with **FHIR-10/11/12**, **FHIR-01** (PHI logging + `BundleResourceContext`), **FHIR-00**. Compliance workflow: [clinic-workflow.md](../skills/product-owner-overview/clinic-workflow.md) step 5 (monthly audit).
+
+**Missing audit = HIPAA compliance failure = release blocker. No exceptions.**
+
+## 1. Audit Every Imaging Access — Create AND Read
+
+- **MUST** audit **every** FHIR operation on `ImagingStudy` and `DiagnosticReport`: `read`, `create`, `update`, `delete`, `search`, `export`.
+- **ALWAYS** capture: **who** (user/principal ID), **role** (e.g. `clinicTechnician`, `clinicRadiologist`), **action**, **resourceType**, **resourceId**, **timestamp** (UTC), **correlationId**, **outcome** (`success` | `denied`).
+- **MUST** audit radiologist **`GET /ImagingStudy/{id}`** — reading a study is PHI access, not just `POST /DiagnosticReport`.
+- **NEVER** assume create/update logging is sufficient; **read-heavy imaging workflows fail compliance without read audits**.
+
+**If violated:** compliance officer cannot answer "who viewed this study?"; OCR audit finds §164.312(b) gap; **clinic cannot ship**.
+
+## 2. Compartment Access — Log Success AND Failure
+
+- **MUST** log **successful** compartment-scoped access: `GET /Patient/{patientId}/ImagingStudy`.
+- **MUST** log **failed** cross-compartment or unauthorized attempts: wrong patient compartment, role denied, 403/404 on scoped search.
+- **ALWAYS** include `patientCompartmentId` (or attempted target) and `denialReason` on failures — **NEVER** swallow auth failures without audit.
+- **NEVER** return cross-patient data without a corresponding deny log when access is blocked (FHIR-11).
+
+```json
+{
+  "eventType": "imaging.access.denied",
+  "timestamp": "2026-08-11T18:22:01.003Z",
+  "userId": "rad-8841",
+  "role": "clinicRadiologist",
+  "action": "read",
+  "resourceType": "ImagingStudy",
+  "resourceId": "stu-2001",
+  "patientCompartmentId": "pat-1001",
+  "requestedPatientId": "pat-9999",
+  "outcome": "denied",
+  "denialReason": "compartment_mismatch",
+  "correlationId": "req-7f3a2b1c"
+}
+```
+
+**If violated:** breach may go undetected; failed intrusion attempts invisible; HIPAA breach notification triggers without forensic evidence.
+
+## 3. Audit Log Content — Identifiers Only, NEVER Clinical Data
+
+- **NEVER** write medical findings, diagnoses, impressions, `conclusion`, patient names, MRNs, DOB, or DiagnosticReport narrative into audit logs.
+- **ALWAYS** log resource identifiers and metadata only — same rule as FHIR-01 application logs.
+- **MUST NOT** serialize full FHIR resource bodies into audit events.
+
+```json
+{
+  "eventType": "imaging.access.success",
+  "timestamp": "2026-08-11T18:21:45.127Z",
+  "userId": "tech-1204",
+  "role": "clinicTechnician",
+  "action": "create",
+  "resourceType": "ImagingStudy",
+  "resourceId": "stu-2001",
+  "patientCompartmentId": "pat-1001",
+  "outcome": "success",
+  "correlationId": "req-9c4e8d2a"
+}
+```
+
+```csharp
+// ❌ FORBIDDEN — PHI/clinical content in audit log
+_audit.Log(new { User = userId, Conclusion = report.Conclusion, PatientName = patient.Name });
+
+// ✅ REQUIRED — identifiers and action only
+_audit.Log(new { User = userId, Role = role, Action = "read", ResourceType = "ImagingStudy", ResourceId = studyId, Outcome = "success" });
+```
+
+**If violated:** audit store becomes a **second PHI repository**; log retention = breach exposure; OCR treats as reportable incident.
+
+## 4. BundleResourceContext — Required on All Imaging Operations
+
+- **MUST** pass `BundleResourceContext` (or equivalent audit `ResourceContext`) through **every** imaging handler path into `IFhirDataStore` calls (FHIR-01).
+- **ALWAYS** propagate context on: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, search, and bulk imaging operations.
+- **NEVER** add imaging code paths that call `FhirDataStore` without audit context when the API accepts it.
+
+```csharp
+// ✅ REQUIRED
+await FhirDataStore.UpsertAsync(
+    new ResourceWrapperOperation(wrapper, /* ... */, request.BundleResourceContext),
+    cancellationToken);
+```
+
+**If violated:** server-side audit pipeline missing request actor/correlation; monthly compliance export (clinic-workflow step 5) has gaps; **ship blocker**.
+
+## 5. Compliance Officer Requirements — Monthly Audit Export
+
+From clinic-workflow.md step 5 — implementations **MUST** support filtering audit records by:
+
+- `patientCompartmentId` / `resourceId`
+- `userId`, `role`
+- `timestamp` range
+- `action` (`read`, `create`, `update`, `export`)
+- `resourceType` (`ImagingStudy`, `DiagnosticReport`)
+
+- **MUST** produce monthly reports without manual log scraping.
+- **NEVER** ship imaging features if compliance officer cannot query read access on ImagingStudy.
+
+**If violated:** HIPAA §164.312(b) operational failure; regulatory risk; clinic loses referrer trust and payer contracts.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| Imaging read without audit event | §164.312(b) failure; cannot ship |
+| Audit log containing findings/diagnosis/name/MRN | Secondary PHI breach |
+| Failed compartment access not logged | Undetected unauthorized attempts |
+| `FhirDataStore` call without `BundleResourceContext` | Broken audit chain |
+| "We'll add audit later" imaging endpoints | Automatic release blocker |
+| Client-only audit (no server-side record) | Spoofable; fails compliance review |
+| Full resource body in audit JSON | PHI in log aggregation |
+
+**MUST** verify read + create audit events in E2E tests for technician and radiologist paths before merge. Treat missing imaging audit as **equal severity to cross-patient data leak**.

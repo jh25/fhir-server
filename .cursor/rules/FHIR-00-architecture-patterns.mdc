@@ -1,0 +1,60 @@
+---
+description: >-
+  FHIR-00 — MANDATORY architecture: Medino handlers only, IFhirDataStore only
+  (no SQL in Core/API), authorization before any work. Microsoft FHIR Server
+  rule set. MidSizedClinic imaging rules: FHIR-10 through FHIR-13.
+alwaysApply: true
+---
+
+# FHIR-00 — Architecture Patterns (Mandatory)
+
+You MUST follow these three patterns on every change to business logic, controllers, or persistence. Violations break testability, backend portability, and HIPAA authorization guarantees.
+
+## 1. Medino Handler Pattern
+
+Controllers route HTTP ONLY. Business logic lives in handlers ONLY.
+
+- **ALWAYS** keep controllers thin: parse HTTP → build Request → call `_mediator.SendAsync<TResponse>(request)`.
+- **NEVER** put business logic, validation beyond HTTP binding, or persistence calls in controllers.
+- **ALWAYS** implement handlers as `IRequestHandler<TRequest, TResponse>` with `async Task<TResponse> HandleAsync(...)`.
+- **MUST** register new operations as Request + Handler pairs — no shortcuts.
+
+**Reference flow:** `FhirController.Read()` → `GetResourceRequest` → handler executes logic.
+
+**If violated:** logic is untestable without HTTP, duplicated across endpoints, and bypasses the single pipeline (validation, auth, telemetry) handlers provide.
+
+## 2. IFhirDataStore Abstraction — No Direct SQL
+
+All persistence goes through `IFhirDataStore`. SQL Server and Cosmos DB are interchangeable backends.
+
+- **ALWAYS** inject `IFhirDataStore` in handler constructors (or inherit via `BaseResourceHandler`).
+- **ALWAYS** call interface methods: `GetAsync`, `UpsertAsync`, etc. — with `ResourceWrapper` and `ResourceContext`.
+- **NEVER** write raw SQL, ADO.NET, or EF calls from `Microsoft.Health.Fhir.Core`, `Microsoft.Health.Fhir.Api`, or Shared layers.
+- **NEVER** reference `Microsoft.Health.Fhir.SqlServer` types from Core or API — SQL belongs in the SqlServer project only.
+
+**If violated:** Core/API become SQL-coupled, Cosmos deployments break, and schema changes require edits in the wrong layer.
+
+## 3. Authorization Checks First
+
+Every handler MUST authorize before any read, write, or side effect.
+
+- **ALWAYS** call `AuthorizationService.Check*Access(...)` as the first substantive line in `HandleAsync` (immediately after null-guards).
+- **NEVER** call `FhirDataStore`, external services, or mutate state before authorization completes.
+- **MUST** use the correct check for the operation: `CheckGetAccess`, `CheckCreateAccess`, `CheckUpdateAccess`, `CheckDeleteAccess`, etc.
+
+**Reference:** `CreateResourceHandler.HandleAsync` — `CheckCreateAccess` at line 51, before any resource work.
+
+**If violated:** unauthorized PHI access (HIPAA breach), audit trail gaps, and authorization that can be skipped by code path.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Why |
+|---|---|
+| Business logic in controllers | Untestable, unmaintainable, duplicates handler pipeline |
+| Raw SQL / direct DB access outside SqlServer project | Breaks dual-backend design |
+| Authorization after persistence or mid-handler | Security hole; fails compliance review |
+| New services instantiated with `new` in handlers | Breaks DI; untestable — inject interfaces |
+
+When reviewing existing code, FLAG violations and refactor toward these patterns before adding features.
