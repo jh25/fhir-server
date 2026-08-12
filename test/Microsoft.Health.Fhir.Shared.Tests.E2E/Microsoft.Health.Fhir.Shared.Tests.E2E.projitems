@@ -75,6 +75,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ImagingStudyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HealthTests.cs" />

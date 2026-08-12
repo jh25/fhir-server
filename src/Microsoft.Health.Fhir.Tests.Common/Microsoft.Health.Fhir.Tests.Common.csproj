@@ -80,6 +80,7 @@
     <None Remove="TestFiles\R4\group-example.json" />
     <None Remove="TestFiles\R4\guidanceresponse-example.json" />
     <None Remove="TestFiles\R4\healthcareservice-example.json" />
+    <None Remove="TestFiles\R4\imagingstudy-clinic-required.json" />
     <None Remove="TestFiles\R4\imagingstudy-example.json" />
     <None Remove="TestFiles\R4\immunizationevaluation-example.json" />
     <None Remove="TestFiles\R4\immunizationrecommendation.profile.json" />
@@ -384,6 +385,7 @@
     <EmbeddedResource Include="TestFiles\R4\group-example.json" />
     <EmbeddedResource Include="TestFiles\R4\guidanceresponse-example.json" />
     <EmbeddedResource Include="TestFiles\R4\healthcareservice-example.json" />
+    <EmbeddedResource Include="TestFiles\R4\imagingstudy-clinic-required.json" />
     <EmbeddedResource Include="TestFiles\R4\imagingstudy-example.json" />
     <EmbeddedResource Include="TestFiles\R4\Immunization.json" />
     <EmbeddedResource Include="TestFiles\R4\immunizationevaluation-example.json" />

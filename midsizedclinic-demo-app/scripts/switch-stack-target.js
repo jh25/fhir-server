@@ -84,8 +84,13 @@ function detectWorklistBackend(env) {
   if (/require\(['"]\.\.\/db\/imagingStudies['"]\)/.test(imaging)) {
     return { backend: 'sql', how: 'routes/imaging.js → db/imagingStudies (SQL)' };
   }
-  if (/FHIR_BASE_URL|fhirClient|createFhir|\/metadata/.test(imaging) && /fetch\(|axios|got\(/.test(imaging)) {
-    return { backend: 'fhir', how: 'routes/imaging.js → FHIR HTTP client' };
+  // FHIR path: require('../lib/fhirClient') or inline FHIR_BASE_URL / fetch client.
+  if (
+    /require\(['"]\.\.\/lib\/fhirClient['"]\)/.test(imaging) ||
+    (/FHIR_BASE_URL|fhirClient|createFhir|\/metadata/.test(imaging) &&
+      /fetch\(|axios|got\(/.test(imaging))
+  ) {
+    return { backend: 'fhir', how: 'routes/imaging.js → fhirClient / FHIR HTTP' };
   }
 
   const htmlPath = path.join(demoDir, 'public', 'index.html');

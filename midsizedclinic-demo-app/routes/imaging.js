@@ -6,13 +6,13 @@
  *
  * Differs from the real .NET FHIR handler:
  * - Role via X-User-Role header vs AuthorizationService.CheckGetAccess / roles.json
- * - Raw SQL vs MediatR → IFhirDataStore / SqlQueryGenerator
+ * - Proxies FHIR REST compartment search (lib/fhirClient) vs MediatR → IFhirDataStore
  * - Console audit vs BundleResourceContext audit pipeline
  */
 
 const express = require('express');
 const { auditAccess } = require('../middleware/audit');
-const { searchByPatient } = require('../db/imagingStudies');
+const { searchImagingStudiesByPatient } = require('../lib/fhirClient');
 
 const router = express.Router();
 
@@ -85,34 +85,42 @@ router.get('/Patient/:patientId/ImagingStudy', async (req, res) => {
   const modality = req.query.modality ? String(req.query.modality) : null;
 
   try {
-    let resources = await searchByPatient({ patientId, modality, count });
+    const { status, body, resourceType } = await searchImagingStudiesByPatient({
+      patientId,
+      modality,
+      sort,
+      count,
+    });
 
-    // SQL query defaults to DESC; reverse only when client asks for ascending.
-    if (sort === 'started') {
-      resources = [...resources].reverse();
+    if (status < 200 || status >= 300) {
+      auditAccess({
+        userId,
+        role,
+        action: 'search',
+        resourceType: 'ImagingStudy',
+        patientCompartmentId: patientId,
+        outcome: 'denied',
+        denialReason: 'fhir_upstream_error',
+      });
+
+      res
+        .status(status)
+        .type('application/fhir+json')
+        .json(body.resourceType ? body : operationOutcome('error', 'exception', 'ImagingStudy search failed'));
+      return;
     }
 
-    const bundle = {
-      resourceType: 'Bundle',
-      type: 'searchset',
-      total: resources.length,
-      entry: resources.map((resource) => ({
-        fullUrl: `ImagingStudy/${resource.id}`,
-        resource,
-        search: { mode: 'match' },
-      })),
-    };
-
+    // Pass through FHIR Bundle searchset — frontend reads entry[].resource (public/app.js).
     auditAccess({
       userId,
       role,
       action: 'search',
-      resourceType: 'ImagingStudy',
+      resourceType: resourceType || 'Bundle',
       patientCompartmentId: patientId,
       outcome: 'success',
     });
 
-    res.status(200).type('application/fhir+json').json(bundle);
+    res.status(200).type('application/fhir+json').json(body);
   } catch (err) {
     // Log error message only — never serialize request bodies or resource JSON (PHI).
     console.error('ImagingStudy search failed:', err.message);

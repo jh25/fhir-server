@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Location = "Location";
 
+        public const string ImagingStudy = "ImagingStudy";
+
         public const string Immunization = "Immunization";
 
         public const string Medication = "Medication";

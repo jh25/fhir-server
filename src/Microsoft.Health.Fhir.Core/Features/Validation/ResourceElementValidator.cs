@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .SetValidator(contentValidator);
             RuleFor(x => x)
                 .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
+            RuleFor(x => x)
+                .SetValidator(new ImagingStudyRequiredFieldsValidator());
         }
     }
 }

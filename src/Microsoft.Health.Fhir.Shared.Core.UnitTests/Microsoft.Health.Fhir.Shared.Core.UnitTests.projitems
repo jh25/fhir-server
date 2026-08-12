@@ -138,6 +138,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\FhirPrimitiveTypes\IdValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeDataTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeHtmlSanitizerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ImagingStudyRequiredFieldsValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ServerProvideProfileValidationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessorTests.cs" />
