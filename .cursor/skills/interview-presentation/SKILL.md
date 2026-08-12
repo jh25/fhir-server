@@ -3,11 +3,11 @@ name: interview-presentation
 description: >-
   Generate a live, auto-updating MidSizedClinic Interview Presentation Canvas
   for Solutions Architect interviews. Explains in plain English why this
-  convention-heavy FHIR server is the right first kit, how Cursor BAA/HIPAA
-  fits, and how .cursorignore keeps PHI out of the AI feed. Auto-discovers
-  boundary files, rules, skills, and mcp.json. Use when the user runs
-  /interview-presentation, /presentation or /demo, or says "show the kit",
-  "what's the story", or interview demo.
+  convention-heavy Fast Healthcare Interoperability Resources (FHIR) server is
+  the right first kit, how Cursor BAA/HIPAA fits, and how .cursorignore keeps
+  PHI out of the AI feed. Auto-discovers boundary files, rules, skills, and
+  mcp.json. Use when the user runs /interview-presentation, /presentation or
+  /demo, or says "show the kit", "what's the story", or interview demo.
 disable-model-invocation: false
 ---
 
@@ -23,23 +23,29 @@ They want to see: judgment about priorities, why this codebase first, HIPAA-awar
 AI use (BAA + extra PHI constraints), guardrail thinking, and runnable proof —
 not slides dense with jargon.
 
-For FHIR Server system architecture (layers, request flow, persistence) — not
-the kit story — use [architecture-overview](../architecture-overview/SKILL.md).
+On first mention in the Canvas (Why this repo first frame), write **Fast Healthcare
+Interoperability Resources (FHIR)** before using the acronym alone.
+
+For Fast Healthcare Interoperability Resources (FHIR) Server system architecture
+(layers, request flow, persistence) — not the kit story — use
+[architecture-overview](../architecture-overview/SKILL.md).
 
 ## Narrative Arc (fixed — do not add sections)
 
 1. The Problem (ramp time, convention drift, review burden) — plain English
 2. The Solution (four kit layers: boundary + rules + skills + MCP)
-3. The Measurements (before/after convention adherence scores)
-4. Multi-role Entry Points (same kit, different doors: setup, first-contribution, tests)
-5. Account Value (land → expand → retain)
+3. Multi-role Entry Points (same kit, different doors: setup, first-contribution, tests)
+4. Account Value (land → expand → retain)
 
 **Before section 1**, under the title: a short **Why this repo first** frame
-(not a sixth section) — see layout-spec.
+(not a fifth section) — see layout-spec.
 
 Ruthlessly cut anything outside this arc. Output is **ONE Canvas per invocation**.
-MCP belongs inside section 2 (and optionally as pills under section 4) — never a
-sixth section.
+MCP belongs inside section 2 (and optionally as pills under section 3) — never a
+fifth section.
+
+**Do not** add a measurements / scores / eval chart section — illustrative numbers
+are noise; proof is live kit discovery.
 
 ## Plain English (required)
 
@@ -54,8 +60,9 @@ clinic history beyond what MidSizedClinic materials say.
 
 **Logic to convey:**
 
-1. **FHIR Server is convention-heavy.** House rules (layers, Shared multi-targeting,
-   handler patterns, FHIR-spec-first behavior) are easy for a generalist agent to miss.
+1. **Fast Healthcare Interoperability Resources (FHIR) Server is convention-heavy.**
+   House rules (layers, Shared multi-targeting, handler patterns, FHIR-spec-first
+   behavior) are easy for a generalist agent to miss.
 2. **Healthcare is hard if you do not already know it.** Patient data, imaging
    workflows, and HIPAA change the cost of a wrong suggestion.
 3. **That makes it a good first kit.** If the kit works here — where mistakes are
@@ -81,8 +88,8 @@ point. Say that plainly.
 ## Design Principle
 
 Use the Canvas format already established for MidSizedClinic (why-this-repo frame,
-three-card problem, visual tree for layers, data table + chart, multi-role grid,
-account callout). That layout communicated without narration — replicate that clarity.
+three-card problem, visual tree for layers, multi-role grid, account callout).
+That layout communicated without narration — replicate that clarity.
 
 Full component recipe: [layout-spec.md](layout-spec.md). Read it before writing the Canvas.
 
@@ -94,10 +101,9 @@ Copy this checklist and track it:
 Presentation:
 - [ ] 1. Discover kit files (+ MCP config)
 - [ ] 2. Extract metadata (count Y vs Z)
-- [ ] 3. Map into the five arc buckets (+ why-FHIR / BAA+PHI frame)
-- [ ] 4. Load measurements (real or defaults)
-- [ ] 5. Write/overwrite the Canvas in plain English
-- [ ] 6. Narrate X/Y/Z + why FHIR first + BAA/PHI + MCP + link the Canvas
+- [ ] 3. Map into the four arc buckets (+ why-FHIR / BAA+PHI frame)
+- [ ] 4. Write/overwrite the Canvas in plain English
+- [ ] 5. Narrate X/Y/Z + why FHIR first + BAA/PHI + MCP + link the Canvas
 ```
 
 ### 1. Discover kit files
@@ -113,9 +119,8 @@ From the **repo root**, gather the inventory with Glob / Read (do not hardcode t
 
 Include this skill in the skill count — self-inclusion is the proof.
 
-Skip skill *supporting* files (scripts, yaml, json) except when loading measurements
-defaults or when a skill's body is scanned for MCP usage (step 2). They are not
-narrative tree nodes by themselves.
+Skip skill *supporting* files (scripts, yaml, json) except when a skill's body is
+scanned for MCP usage (step 2). They are not narrative tree nodes by themselves.
 
 ### 2. Extract metadata (real shapes in this repo)
 
@@ -180,27 +185,20 @@ in the embedded snapshot; if absent, `status: configured` (file-only — not fab
 | Title frame | Why FHIR/this repo first + Cursor BAA awareness + PHI feed constraints |
 | Problem | Fixed three themes (ramp / conventions / review) in plain English — may cite "0 rules yet" |
 | Solution tree | boundary → rules → skills → MCP; boundary copy must explain PHI-out-of-feed |
-| Measurements | See step 4 |
 | Entry points | Show **all** doors (discovered skills + known Planned gaps). Tag each with audience: `QA` · `Engineering` · `PO` · `DevOps` (see layout-spec mapping). MCP pills when `usesMcp` is non-empty |
 | Account value | Land = boundary + BAA/PHI story; Expand = skills/rules/MCP; Retain = kit survives the champion |
 
-### 4. Measurements
-
-1. If `.cursor/eval/convention-scores.json` exists, use it (same shape as defaults).
-2. Else use [measurements.defaults.json](measurements.defaults.json) and keep the illustrative caption.
-
-Compute per run: `aggregate = mean(scores)`, `delta = aggregate - baselineAggregate`.
-
-### 5. Write the Canvas
+### 4. Write the Canvas
 
 - Path and layout: [layout-spec.md](layout-spec.md)
 - Embed the inventory snapshot as constants in the `.canvas.tsx` (no network) — include
   `mcp.servers[]` and each skill's `usesMcp`
-- Fix Canvas TypeScript check errors before finishing (`Card` has no `key` prop — wrap in `<div key=...>`; `BarChart` has no `title` — use `H3` above it)
+- Fix Canvas TypeScript check errors before finishing (`Card` has no `key` prop — wrap in `<div key=...>`)
 - Read the canvas skill if unsure about `cursor/canvas` APIs
 - **Never** put PATs, Authorization headers, or env-var values into the Canvas
+- **Never** invent convention-score charts or illustrative measurement tables
 
-### 6. Narrate the tradeoff (required in chat)
+### 5. Narrate the tradeoff (required in chat)
 
 Say exactly this pattern with real integers filled in:
 
@@ -215,7 +213,7 @@ Then link the Canvas with a markdown link to its absolute `.canvas.tsx` path. On
 
 - **LIVE** — re-discover and regenerate on every trigger; never present screenshots or a memorized file list as current truth
 - **Self-documenting proof** — auto-discovery is the whole point; the Canvas must reflect files that exist *now*
-- **Arc fit** — five sections only; why-FHIR / BAA+PHI live in title frame + Problem/Solution/Land wording
+- **Arc fit** — four sections only; why-FHIR / BAA+PHI live in title frame + Problem/Solution/Land wording
 - **One Canvas** — overwrite the same output path; no multi-page deck
 - **No secrets** — MCP discovery is structural (names, transport kind, toolsets, skill wiring)
 - **No overclaim** — BAA is product/compliance posture; `.cursorignore` is our feed constraint
@@ -232,3 +230,4 @@ Then link the Canvas with a markdown link to its absolute `.canvas.tsx` path. On
 - Claiming an MCP is "online" without a successful `GetMcpTools` / catalog check this run
 - Claiming `.cursorignore` alone = HIPAA compliance or that test fixtures are real patient data
 - Jargon-first copy that assumes the interviewer already knows FHIR
+- Fake or illustrative “measurements” / convention-score charts (no eval data yet)

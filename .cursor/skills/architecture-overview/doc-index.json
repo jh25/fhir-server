@@ -71,9 +71,29 @@
       "note": "Upsert, Get, Merge, HardDelete"
     },
     {
+      "topic": "Route catalog (KnownRoutes)",
+      "path": "src/Microsoft.Health.Fhir.Core/Features/Routing/KnownRoutes.cs",
+      "note": "CRUD, search, history, compartments, $export/$import/bulk/ops"
+    },
+    {
       "topic": "API entry point",
       "path": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/FhirController.cs",
       "note": "REST surface; dispatches via IMediator"
+    },
+    {
+      "topic": "SQL Resource table",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/Resource.sql",
+      "note": "RawResource blob, Version, IsHistory, IsDeleted, partition by ResourceTypeId"
+    },
+    {
+      "topic": "SQL SearchParam catalog",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/SearchParam.sql",
+      "note": "Search parameter URI → SearchParamId"
+    },
+    {
+      "topic": "SQL DateTime search index",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/DateTimeSearchParam.sql",
+      "note": "Example typed search index table"
     },
     {
       "topic": "GET handler example",
@@ -113,8 +133,8 @@
     }
   ],
   "counts": {
-    "docsMd": 66,
+    "docsMd": 64,
     "flowDiagrams": 9,
-    "adrs": 24
+    "adrs": 23
   }
 }

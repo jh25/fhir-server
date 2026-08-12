@@ -1,6 +1,6 @@
-# Canvas layout spec — Product Owner overview (MidSizedClinic FHIR Server)
+# Canvas layout spec — Product Owner overview (MidSizedClinic Fast Healthcare Interoperability Resources (FHIR) Server)
 
-One screen for a **Product Owner**: what FHIR is, how it fits imaging ops, what
+One screen for a **Product Owner**: what Fast Healthcare Interoperability Resources (FHIR) is, how it fits imaging ops, what
 we can run today, what we still own, what Microsoft still has open.
 
 Honest provenance. Clinic language on the surface. Engineering detail folded.
@@ -9,7 +9,7 @@ Honest provenance. Clinic language on the surface. Engineering detail folded.
 
 ## Title & Clinic context
 
-`H1`: MidSizedClinic — Imaging workflow on FHIR
+`H1`: MidSizedClinic — Imaging workflow on Fast Healthcare Interoperability Resources (FHIR)
 
 Subtitle: *What FHIR is, how it fits our clinic, and what is ready vs still open.*
 
@@ -19,15 +19,27 @@ Clinic snapshot card (from clinic-workflow.md):
 - **Compliance:** HIPAA. All PHI access authenticated and auditable.
 - **Users:** Technician, radiologist, clinic admin, referring provider (via SMART), compliance officer
 
-## 1. What is FHIR & why we use it
+## 1. What is Fast Healthcare Interoperability Resources (FHIR) & why it is critical
 
-Three short blocks (or one card with three `H3`s) — **required**, ≤ ~120 words total:
+**A. Primer — three short cards** (≤ ~120 words total):
 
 | Beat | Content |
 |------|---------|
 | What it is | Common language for health data (patients, studies, reports) over standard APIs |
 | Why we use it | One clinical backbone for referrer EHRs, imaging apps, and compliance — not one-off interfaces; matches on-prem SQL + role policy |
 | How it fits | FHIR holds the clinical record and access; PACS holds image pixels; clinic apps talk FHIR |
+
+**B. Business benefits — required table or five compact cards:**
+
+1. Automated prior authorizations (time savings)
+2. Instant claims eligibility & accurate copays
+3. Comprehensive patient longitudinal records
+4. Plug-and-play third-party apps
+5. Seamless participation in TEFCA and QHINs
+
+**C. Company-critical paragraph** — one Callout tying A+B together: why FHIR is
+strategic for MidSizedClinic (speed, revenue cycle, longitudinal care, partners,
+national network readiness) — not five disconnected slogans.
 
 No resource schemas. Optional one-line link to Microsoft’s supported-features doc.
 
@@ -49,15 +61,16 @@ Primary decision table. Lead columns:
 
 | Clinic outcome | Status | What it means | Gap / next step |
 |----------------|--------|---------------|-----------------|
-| Look up prior studies at check-in | Ready | … | … |
-| Store new ultrasound study | Ready | … | … |
-| Author & sign report | Ready | … | … |
-| Referrer gets results securely | Ready / Needs clinic work | … | … |
-| Monthly HIPAA access review | Needs clinic work / Waiting on Microsoft | … | … |
-| Migrate 15 years of legacy records | Ready / Needs clinic work | … | … |
+| Look up prior studies at check-in | Needs clinic work | Sample app only — not production check-in | Clinic worklist + real load |
+| Store new ultrasound study | Needs clinic work | Server can store; capture app not live | Wire tech capture → FHIR |
+| Author & sign report | Needs clinic work | Server can store reports; reporting UI not live | Radiologist app |
+| Referrer gets results securely | Needs clinic work | SMART/OAuth not clinic-configured | Portal vs EHR decision + launch |
+| Monthly HIPAA access review | Needs clinic work | Logs exist; no monthly runbook | Audit report process (+ track #2611) |
+| Migrate 15 years of legacy records | Needs clinic work | $import exists; cutover not rehearsed | Migration runbook |
 
 **Status vocabulary (surface):** Ready · Needs clinic work · Waiting on Microsoft  
-(Map internally from shipped / clinic gap / upstream — keep F-ids and endpoints out of this table.)
+
+**Critical:** "Shipped in repo" ≠ **Ready**. Ready means MidSizedClinic can run that outcome in **production clinic ops** today (staff + apps + process). A sample app, local demo, or unused API does **not** count as Ready. Keep F-ids and endpoints out of this table.
 
 Stats strip above the table: Ready count · Needs clinic work · Waiting on Microsoft.
 

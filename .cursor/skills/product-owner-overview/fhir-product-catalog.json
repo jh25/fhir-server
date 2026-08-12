@@ -159,7 +159,7 @@
       "source": "docs/Roles.md, docs/Authentication.md, HIPAA minimum necessary standard",
       "priority": "must",
       "satisfiedBy": ["F-003", "F-004"],
-      "gap": null
+      "gap": "Roles/auth exist in the server; clinic has not mapped production staff personas or enforced them in live apps."
     },
     {
       "id": "REQ-002",
@@ -168,7 +168,7 @@
       "source": "AGENTS.md, HL7 FHIR R4 spec",
       "priority": "must",
       "satisfiedBy": ["F-001"],
-      "gap": null
+      "gap": "REST API is shipped; no production referrer EHR exchange configured at the clinic."
     },
     {
       "id": "REQ-003",
@@ -177,7 +177,7 @@
       "source": "Clinic workflow observations, docs/SearchArchitecture.md",
       "priority": "must",
       "satisfiedBy": ["F-002"],
-      "gap": null
+      "gap": "Only exercised via sample app so far — not production check-in worklist or proven under clinic load."
     },
     {
       "id": "REQ-004",
@@ -195,7 +195,7 @@
       "source": "HIPAA audit trail requirement, clinic QA process",
       "priority": "must",
       "satisfiedBy": ["F-005", "F-009"],
-      "gap": null
+      "gap": "Export/reindex exist; clinic has no production QA export process or monthly access-review workflow."
     },
     {
       "id": "REQ-006",

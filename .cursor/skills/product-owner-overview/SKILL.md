@@ -1,32 +1,38 @@
 ---
 name: product-owner-overview
 description: >-
-  Generates a live Canvas for MidSizedClinic Product Owners: what FHIR is and
-  why the clinic uses it, how the imaging workflow maps to shipped FHIR Server
-  capabilities, clinic-owned gaps, and real upstream microsoft/fhir-server
-  backlog via GitHub MCP. Prefer clinic language over endpoints. Use when the
-  user runs /product-owner-overview, or asks how FHIR fits the clinic workflow,
-  what gaps remain, or what Microsoft still has open upstream.
+  Generates a live Canvas for MidSizedClinic Product Owners: what Fast Healthcare
+  Interoperability Resources (FHIR) is and why the clinic uses it, how the imaging
+  workflow maps to shipped FHIR Server capabilities, clinic-owned gaps, and real
+  upstream microsoft/fhir-server backlog via GitHub MCP. Prefer clinic language
+  over endpoints. Use when the user runs /product-owner-overview, or asks how
+  FHIR fits the clinic workflow, what gaps remain, or what Microsoft still has
+  open upstream.
 disable-model-invocation: false
 ---
 
-# Product Owner Overview — MidSizedClinic FHIR Server
+# Product Owner Overview — MidSizedClinic Fast Healthcare Interoperability Resources (FHIR) Server
 
-Generate a live Canvas answering: **What is FHIR, why does MidSizedClinic use
-it, and what can we run today vs still own as gaps?** Honest map of clinic
-workflow → product outcomes → shipped capabilities → clinic gaps → real
-upstream Microsoft issues. Not a made-up feature list.
+Generate a live Canvas answering: **What is Fast Healthcare Interoperability
+Resources (FHIR), why does MidSizedClinic use it, and what can we run today vs
+still own as gaps?** Honest map of clinic workflow → product outcomes → shipped
+capabilities → clinic gaps → real upstream Microsoft issues. Not a made-up
+feature list.
 
 **Audience:** Product Owner at MidSizedClinic (not engineers first)
 
-They need: a plain-language FHIR primer, how it fits imaging ops, which steps
-are ready, what the clinic still owns, and what Microsoft still has open — so
-they can prioritize without reading controllers.
+They need: a plain-language Fast Healthcare Interoperability Resources (FHIR)
+primer, how it fits imaging ops, which steps are ready, what the clinic still
+owns, and what Microsoft still has open — so they can prioritize without reading
+controllers.
+
+On first mention in the Canvas, write **Fast Healthcare Interoperability Resources
+(FHIR)** before using the acronym alone.
 
 ## Narrative Arc
 
 1. **Clinic context** (ultrasound center, volume, HIPAA, roles)
-2. **What is FHIR & why we use it** (standard, interoperability, clinic fit — not a protocol lecture)
+2. **What is Fast Healthcare Interoperability Resources (FHIR) & why it is critical** (standard + clinic fit + business benefits — not a protocol lecture)
 3. **Workflow** (arrive → capture → report → send → audit) in clinic language
 4. **Can we run the clinic?** (each step: Ready / Needs clinic work / Waiting on Microsoft)
 5. **Who can do what** (persona matrix first; platform role names secondary)
@@ -60,15 +66,35 @@ numbers, shipped vs gap) but put implementation below the fold.
 
 **Do not** invent F-xxx IDs or roadmap items. If not in codebase or upstream GitHub issues, label it **assumed clinic gap**.
 
-## FHIR primer (required in Canvas)
+## Fast Healthcare Interoperability Resources (FHIR) primer (required in Canvas)
 
-Write three short beats in PO language (from clinic context + catalog — do not invent vendor claims):
+Write three short beats in PO language (from clinic context + catalog — do not invent
+vendor product claims). Lead with the full name once, then FHIR:
 
-1. **What it is** — HL7 FHIR is a common language for health data (patients, studies, reports) exchanged over standard APIs, so systems do not each invent a private format.
+1. **What it is** — Fast Healthcare Interoperability Resources (FHIR), from HL7, is a common language for health data (patients, studies, reports) exchanged over standard APIs, so systems do not each invent a private format.
 2. **Why MidSizedClinic uses it** — referrers' EHRs, imaging apps, and compliance tooling can talk to one clinical backbone instead of one-off interfaces; R4 REST + roles + SQL residency match clinic policy.
 3. **How it fits our clinic** — FHIR stores the **clinical record** (Patient, ImagingStudy metadata, DiagnosticReport). Image pixels stay in PACS; FHIR holds the links, status, and who may access what.
 
-Keep this under ~120 words total. No resource-field dumps.
+Keep those three beats under ~120 words total. No resource-field dumps.
+
+### Business benefits (required — same section)
+
+Immediately after the three beats, show these **company outcomes** FHIR enables
+(plain English; not endpoint lists). Use a short table or five compact cards:
+
+| Benefit | PO language |
+|---------|-------------|
+| Automated prior authorizations | Faster authorizations with less staff chase-time when payers and referrers can consume the same clinical data |
+| Instant claims eligibility & accurate copays | Eligibility and patient responsibility clearer before the visit — fewer surprise bills and denials |
+| Comprehensive patient longitudinal records | Prior imaging, reports, and history in one longitudinal view instead of fax / phone / chart hunting |
+| Plug-and-play third-party apps | SMART / FHIR apps connect without a custom interface project for every vendor |
+| Seamless TEFCA & QHIN participation | Standard exchange posture so MidSizedClinic can join national networks (TEFCA / QHINs) without rebuilding our data model |
+
+Then **one paragraph** (Callout or open prose) answering: **why this is critical for
+MidSizedClinic as a company** — tie the five benefits together: imaging centers win
+on speed-to-referrer, clean revenue cycle, trusted longitudinal history, partner
+ecosystem, and network participation; FHIR is the shared language that makes those
+possible without a private API for every partner.
 
 ## GitHub MCP Setup (required for upstream backlog)
 
@@ -184,11 +210,14 @@ Layout: [layout-spec.md](layout-spec.md)
 
 | Label | Meaning |
 |---|---|
-| **Ready** / **Shipped (in repo)** | Controller + doc verified in this fork — say "Ready" on the surface |
+| **Ready** | Clinic can run this **outcome in production ops today** (staff + apps + process). Sample apps and demos do **not** count. |
+| **Shipped (in repo)** | Controller + doc verified — engineering detail only; never auto-promote to Ready |
 | **Upstream backlog** | Open issue on microsoft/fhir-server (cite #number + url) |
-| **Clinic gap** / **Needs clinic work** | MidSizedClinic need not met; process/config we own |
+| **Clinic gap** / **Needs clinic work** | Outcome not production-ready for MidSizedClinic; we still own apps, config, or process |
 | **Waiting on Microsoft** | Blocked or improved by an open upstream issue |
 | **Assumed** | Narrative placeholder — flag explicitly, do not present as fact |
+
+Default for "Can we run the clinic?" when unsure: **Needs clinic work**. Do not mark Ready because F-00x is shipped.
 
 ## Narrate in chat
 
@@ -202,9 +231,10 @@ Do **not** mention Cursor kit, .cursorignore, skills, or rules.
 
 - Listing .cursor/ files as product features
 - Fabricating feature statuses without checking code or GitHub issues
+- Marking a clinic outcome **Ready** just because the FHIR API is shipped — Ready means production clinic ops, not "works in a sample app"
 - Inventing F-012/F-013-style roadmap IDs without upstream issue links
 - Treating local-setup as a clinic product capability
-- Copying interview-presentation measurements or conventions charts
+- Copying interview-presentation kit inventory as clinic product features
 - Proceeding with fake upstream data when GitHub MCP is down
 - Leading with controllers, F-ids, or HTTP verbs before clinic outcomes
 - Skipping the FHIR primer

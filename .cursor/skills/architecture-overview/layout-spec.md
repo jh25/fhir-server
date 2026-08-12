@@ -1,132 +1,108 @@
 # Canvas layout spec — architecture overview
 
-One file, one screen, six sections (five arc + deep dives). Visual + reference —
-diagram first, link to real docs for depth. Never paste doc bodies into the Canvas.
+**Output:** `~/.cursor/projects/<workspace>/canvases/midsizedclinic-architecture.canvas.tsx`
 
-**Output path** (overwrite every run):
-
-`~/.cursor/projects/<workspace>/canvases/midsizedclinic-architecture.canvas.tsx`
-
-Workspace folder on this machine: `d-code-fhir-server`.
-
-**Imports:** only `cursor/canvas`. Default-export one component. Embed verified
-facts + doc index inline — no `fetch()`.
+**Imports:** only `cursor/canvas`. Embed verified facts — no `fetch()`.
 
 ## Title
 
-`H1`: MidSizedClinic — FHIR Server Architecture
+`H1`: MidSizedClinic — Fast Healthcare Interoperability Resources (FHIR) Server Architecture
 
-Subtitle: system design — layers, request flow, search & persistence, security.
-Links open real docs; nothing duplicated here.
+Subtitle: *What FHIR is, why versions matter, resource types, APIs, Medino, persistence, and how SQL stores FHIR.*
 
-Callout:
+Verified callout: stack · doc counts · no architecture.md
 
-> Verified: .NET / Medino / IFhirDataStore · N docs · F flow diagrams · A ADRs
+## 1. System context
 
-## 1. System Context
+Clinic one-liner + compact stack table (runtime, hosts, Medino, IFhirDataStore, local URL).
 
-`H2` + short intro (max two sentences):
+## 2. What is Fast Healthcare Interoperability Resources (FHIR)
 
-- MidSizedClinic uses Microsoft FHIR Server as its clinical data platform
-  (patient / imaging workflow data over FHIR REST).
-- Stack facts in a compact `Grid` or `Table`:
+Three equal cards (or three short paragraphs). Must not be a single vague sentence.
 
-| Concern | Verified fact | Deep dive link |
-|---------|---------------|----------------|
-| Runtime | .NET SDK 10.0.302 (`global.json`), `net10.0` | `AGENTS.md` |
-| FHIR | R4/R5/STU3 version-specific projects | `AGENTS.md` project table |
-| Mediation | `Medino` — `IMediator` + `IRequestHandler<,>` (AGENTS.md still says MediatR; code uses Medino) | `GetResourceHandler.cs`, flow diagrams |
-| Persistence | `IFhirDataStore` → `SqlServerFhirDataStore` or `CosmosFhirDataStore` | `IFhirDataStore.cs`, `SearchArchitecture.md` |
-| Local dev | Docker + SQL via `local-setup` skill | `.cursor/skills/local-setup/SKILL.md` |
+| Card | Content |
+|------|---------|
+| What it is exactly | HL7 standard: typed resources (JSON/XML) + REST API. Shared data language + wire protocol. This Microsoft server implements it — FHIR ≠ the product alone. |
+| Why it is needed | Avoid private schemas / one-off interfaces between EHR, PACS, imaging apps; consistent patient identity; enforceable access + audit across partners. |
+| How it helps MidSizedClinic | One clinical backbone from KnownResourceTypes (Patient, Observation, DiagnosticReport, DocumentReference…). FHIR holds identity, findings, links, authorization. R4 + roles + SQL residency. |
 
-Each row gets a `Button` → `openFile` on the doc or code entry point. No invented stack items.
-Do not inventory kit rules/skills here.
+Keep ~180 words total across the three beats.
 
-## 2. Layered Design
+## 3. FHIR versions — why they exist and how they differ
 
-`H2` + four-row stack (or vertical list) — **code layers**, not kit layers:
+**Lead prose (required):** versions are published HL7 snapshots; clients/servers must match; not generally compatible; migration may need transforms (`$convert-data` STU3→R4).
 
-| Layer | Responsibility | Where |
-|-------|----------------|-------|
-| Api | REST controllers, filters, HTTP surface | `src/Microsoft.Health.Fhir.Api/`, Shared.Api `FhirController` |
-| Core | Domain logic, Medino requests/handlers, authz checks | `src/Microsoft.Health.Fhir.Core/`, Shared.Core handlers |
-| Persistence | `IFhirDataStore` implementations | `SqlServer/`, `CosmosDb/` |
-| Infrastructure | Schema, migrations, hosting, Azure wiring | Schema under SqlServer; version projects |
+**Comparison table (required columns):**
 
-Optional small SVG via `computeDAGLayout`: Api → Core → Persistence (SQL | Cosmos).
+| Version | Era / maturity | How it differs | Clinic relevance | In this repo |
+|---------|----------------|----------------|------------------|--------------|
+| STU3 | 2017 · trial use | Earlier shapes; many breaks vs R4 | Legacy / conversion | `*.Stu3.Web` |
+| R4 | 2019 · normative core | Industry / regulatory baseline | **Primary** | `*.R4.Web` |
+| R4B | 2022 · R4 bridge | Small post-R4 backports (e.g. subscription topics) | Only if IG requires | `*.R4B.Web` |
+| R5 | 2023 · newer / thinner adoption | New APIs & resource changes; not drop-in from R4 | Optional future | `*.R5.Web` |
 
-Cite `AGENTS.md`: API → Business Logic → Data Access → Infrastructure. Never label
-these as upstream / guardrails / house way.
+Then: Shared.* vs version projects; different version = different host/package, not a config flag; local Docker → R4.
 
-## 3. Request Lifecycle
+Optional callout: what “definition” means (resource types, elements, search params for that version).
 
-`H2` + vertical step list (GET, POST, and search as tabs or three compact columns).
+## 4. Resource types (own section)
 
-**GET** (from `docs/flow diagrams/read-resource.md`):
+Must not be only pills inside API surface.
 
-Client → Middleware → `FhirController` → Mediator → `GetResourceHandler` → Authorization → `IFhirDataStore.GetAsync` → response
+Include:
 
-**POST** (from `docs/flow diagrams/create-resource.md`):
+1. **What** — named HL7 entity shapes; path segment `/{type}`
+2. **How the server treats them** — generic routing; CapabilityStatement is runtime truth
+3. **KnownResourceTypes.cs** — code constants, incomplete list
+4. **Clinic-relevant table** — type · what it’s for · example use at MidSizedClinic
 
-Same through handler; add ReferenceResolver → WrapperFactory → SearchIndexer → `UpsertAsync`
+Suggested rows (must exist in `KnownResourceTypes.cs`): Patient, Observation, DiagnosticReport, DocumentReference, Practitioner, Organization, Encounter, Bundle, Binary, AuditEvent.
 
-**Search** (from `docs/flow diagrams/search-api.md`):
+Open: `KnownResourceTypes.cs`. Do **not** list types absent from that file (e.g. ImagingStudy, ServiceRequest).
 
-Client → Controller → search pipeline → SQL or Cosmos search path → Bundle response
+## 5. API surface
 
-Link buttons to flow diagram markdown files and `FhirController.cs` / handler sources.
-Do not redraw full Mermaid in Canvas — summarize steps, link for diagram.
+Operations only (CRUD/search/history/compartment + system/bulk/ops tables). Link KnownRoutes + FhirController. Point to `/metadata`.
 
-## 4. Search & Data Model
+## 6. Medino
 
-`H2` + two blocks:
+Dedicated block (not a one-liner):
 
-**Pipeline:** resource JSON → FHIRPath extraction → normalized `ISearchValue` →
-persistence → query (`SearchArchitecture.md`).
+- Request / Response / Handler pattern
+- Flow: Controller → IMediator → HandleAsync
+- Why thin controllers
+- Medino vs MediatR naming mismatch in AGENTS.md
+- Example: Read + GetResourceHandler
+- Open buttons to controller, handler, FhirMediatorExtensions
 
-**Backends:** SQL search path (`search-sql-server.md`) vs Cosmos
-(`search-cosmos-db.md`); shared abstraction remains `IFhirDataStore`.
+Optional mini DAG: Controller → Mediator → Handler
 
-Callout if doc stale: flag `RunningTheProject.md` (still mentions net6.0).
+## 7. IFhirDataStore
 
-## 5. Cross-Cutting Concerns
+Dedicated block:
 
-`H2` + compact `Grid` or `Table`:
+- What it is (persistence port)
+- Methods: Get / Upsert / Merge / HardDelete / search-index helpers
+- SQL vs Cosmos implementations
+- What it is **not** (not the HTTP API; not the full search planner)
+- Open IFhirDataStore.cs + SqlServerFhirDataStore.cs
 
-| Concern | What to know | Deep dive |
-|---------|--------------|-----------|
-| Authentication | Runtime JWT / identity | `docs/Authentication.md` |
-| Authorization | Resource-level checks in handlers | `GetResourceHandler.cs`, AGENTS.md security |
-| Bulk ingress | `$import` NDJSON | `docs/BulkImport.md` |
-| Bulk egress | `$export` | `docs/BulkExport.md` |
-| Schema | Hand-authored SQL migrations | `docs/SchemaMigrationGuide.md` |
-| Decisions | ADR index | `docs/arch/Readme.md` |
+## 8. Layers + request lifecycle
 
-No `.cursorignore` / agent-boundary rows — that story is interview-presentation.
+Short layer table + DAG. Three lifecycle cards (GET / POST / Search) linking flow diagrams.
 
-## 6. Where to Go for Deep Dives
+## 9. SQL ERD
 
-`H2` + `Table` or card grid — curated index from [doc-index.json](doc-index.json):
+Unchanged requirement: Resource blob + SearchParam + typed index tables + versioning/soft-delete/partition callouts.
 
-| Topic | Path | Note |
-|-------|------|------|
-| Project conventions | `AGENTS.md` | Layers, testing, ADR location |
-| Search & persistence | `docs/SearchArchitecture.md` | Extraction → persistence → query |
-| Auth & security | `docs/Authentication.md` | Runtime identity |
-| Request flows | `docs/flow diagrams/*.md` | Mermaid diagrams |
-| ADRs | `docs/arch/Readme.md` | Decision records |
-| SQL schema | `docs/SchemaMigrationGuide.md` | Migrations |
-| Clinic workflow (product) | `.cursor/skills/product-owner-overview/clinic-workflow.md` | MidSizedClinic clinical steps — not architecture |
-| Gaps | `docs/RunningTheProject.md` | Stale — net6.0 reference |
+## 10. Cross-cutting
 
-Each row: `Button` openFile. Close with Callout: no `docs/architecture.md` exists —
-this Canvas + AGENTS.md + flow diagrams are the map.
+AuthN/AuthZ, bulk, schema, ADRs.
 
-## Design constraints
+## 11. Deep dives
 
-- Reference, don't recreate — max 2 sentences per doc in Canvas body
-- `useCanvasAction` openFile for every deep dive
-- Colors from `useHostTheme()` only
-- Flag sparse/stale docs explicitly (valuable signal)
-- One Canvas, ~20-minute review fit
-- Architecture only — no kit inventory or homework narrative
+doc-index + gaps callout.
+
+## Design
+
+Plain English. Mix open sections and cards. No kit inventory. Theme tokens only.
