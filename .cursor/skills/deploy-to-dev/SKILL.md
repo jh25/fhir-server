@@ -1,11 +1,11 @@
 ---
 name: deploy-to-dev
 description: >-
-  Deploys MidSizedClinic "Dev" via the Deploy to Dev CI/CD pipeline, which
-  targets the local Fast Healthcare Interoperability Resources (FHIR) Docker
-  stack (compose + GET /metadata smoke). Tests are a gate inside that pipeline,
-  not a separate product. Use when the user says Deploy to Dev, /deploy-to-dev,
-  run the CI deploy, promote to local, or wants the same path as
+  Deploys MidSizedClinic "Dev" via the Deploy to Dev CI/CD pipeline to a
+  side-by-side Fast Healthcare Interoperability Resources (FHIR) Docker stack
+  (compose project midsizedclinic-deploy on :8081), without replacing local-setup
+  on :8080. Use when the user says Deploy to Dev, /deploy-to-dev, run the CI
+  deploy, promote to local, or wants the same path as
   .github/workflows/deploy-to-dev.yml.
 disable-model-invocation: false
 ---
@@ -15,40 +15,44 @@ disable-model-invocation: false
 **Dev** for MidSizedClinic is **local** — not a cloud environment. The CI/CD
 pipeline is
 [`.github/workflows/deploy-to-dev.yml`](../../../.github/workflows/deploy-to-dev.yml)
-(**Deploy to Dev**): **Tests** (gate) → **Deploy** (compose + `/metadata`).
+(**Deploy to Dev**): **Tests** and **Deploy** run **in parallel**. Deploy uses a
+**separate compose project** so it does not replace the engineer local-setup stack.
 
 On first mention, write **Fast Healthcare Interoperability Resources (FHIR)**
 before using the acronym alone.
 
+| Stack | Compose project | FHIR | SQL (host) | Purpose |
+|-------|-----------------|------|------------|---------|
+| local-setup | `docker` (from `samples/docker`) | `:8080` | `:1433` | Day-to-day coding + demo |
+| **Deploy to Dev** | `midsizedclinic-deploy` | `:8081` | `:1434` | Pipeline / smoke; can run alongside local-setup |
+
 | This skill | [local-setup](../local-setup/SKILL.md) |
 |------------|----------------------------------------|
-| Pipeline-shaped: Tests → Deploy → metadata smoke | Engineer workstation: SDK, compose, demo app `:3000`, seed |
-| “Is Dev green?” / merge-blocking deploy proof | “I need FHIR + demo running to code” |
-| CI downs the stack after smoke; local parity **leaves Dev up** | Leaves stack + demo up for daily work |
+| Side-by-side deploy stack + CI gate | Engineer workstation stack + demo `:3000` |
+| CI downs deploy stack after smoke; local parity **leaves deploy stack up** | Leaves local-setup up |
 
-Tear down with [local-teardown](../local-teardown/SKILL.md) when done.
+Tear down **local-setup** with [local-teardown](../local-teardown/SKILL.md). Tear down
+**deploy stack** with the compose command in Path B (not local-teardown).
 
-## What “Dev” is
+## What “Dev” (deploy stack) is
 
 | Piece | Value |
 |-------|--------|
-| FHIR API | `http://localhost:8080` |
+| FHIR API | `http://localhost:8081` |
 | Smoke | `GET /metadata` → **200** |
-| Compose | `samples/docker/docker-compose.yaml` + `.cursor/skills/local-setup/docker-compose.local.yaml` + `midsizedclinic-demo-app/docker-compose.demo.yaml` |
+| Compose | `samples/docker/docker-compose.yaml` + `local-setup/docker-compose.local.yaml` + [`docker-compose.deploy.yaml`](docker-compose.deploy.yaml) |
 | SQL password (compose) | `SAPASSWORD=L0cal-Dev-Pwd1` (complexity rules; not a real secret) |
 | Required check name (branch protection) | **Deploy** |
 
-Demo app (`:3000`) and seed are **out of scope** for Deploy to Dev (CI does not start Express). After Dev is up, use local-setup steps 6+ if the demo is needed.
+Demo app (`:3000`) stays on local-setup SQL `:1433`. Deploy stack is smoke-only unless you point tools at `:1434` / `:8081` on purpose.
 
 ## Choose a path
 
 ```
 Deploy to Dev
 ├─ A. CI/CD (canonical)     → push/PR to main → watch deploy-to-dev.yml
-└─ B. Local parity          → same jobs on this machine; leave stack running
+└─ B. Local parity          → midsizedclinic-deploy on :8081; local-setup untouched
 ```
-
-Default to **A** when the user wants the pipeline / merge gate. Use **B** when they want Dev on this laptop without waiting on Actions, or when CI is unavailable.
 
 **Agent note (Windows):** Prefer `bash` for local scripts (Git Bash). Use `gh` with `GH_TOKEN` / `GITHUB_PERSONAL_ACCESS_TOKEN` when monitoring Actions.
 
@@ -56,106 +60,81 @@ Default to **A** when the user wants the pipeline / merge gate. Use **B** when t
 
 ## Path A — CI/CD (canonical Deploy to Dev)
 
-1. Confirm workflow file exists and is on the remote branch that will run Actions:
-   `.github/workflows/deploy-to-dev.yml`
-2. Ensure changes (and any compose overlays the workflow mounts) are committed and pushed.
-3. Trigger:
-   - **pull_request** targeting `main`, or
-   - **push** to `main`
-4. Monitor (repo `jh25/fhir-server` or current `origin`):
+1. Confirm `.github/workflows/deploy-to-dev.yml` is on the remote branch.
+2. Push / open PR to `main`.
+3. Monitor:
 
 ```bash
 gh run list --workflow=deploy-to-dev.yml --limit 5
-gh run watch   # or: gh run view <id> --log-failed
+gh run watch
 ```
-
-Jobs (tests are part of deploy, not a separate product):
 
 | Job `name` | Role |
 |------------|------|
-| Tests | Gate: MTP `--treenode-filter "*ImagingStudy*"` on R4 unit + E2E (exit 5/8 / zero matches allowed until tests are wired) |
-| Deploy | Compose up → `/metadata` → compose `down -v` (ephemeral runner) |
+| Tests | Parallel gate: MTP `--treenode-filter "*ImagingStudy*"` (exit 5/8 OK if none) |
+| Deploy | Parallel: project `midsizedclinic-deploy` → `/metadata` on `:8081` → `down -v` |
 
-5. Report Pass/Fail with the run URL. Do **not** log PHI; metadata JSON snippets are fine (CapabilityStatement, not patient data).
-
-If CI fails on Deploy, pull `fhir-api` logs from the failed job; compare compose file paths to local-setup. Fix and re-push — do not invent a second workflow.
+Do **not** log PHI.
 
 ---
 
-## Path B — Local parity (same pipeline, keep Dev up)
-
-Mirrors CI **except** the final `down -v` — leave containers running so Dev stays available.
+## Path B — Local parity (side-by-side, keep deploy stack up)
 
 ```bash
 bash .cursor/skills/deploy-to-dev/scripts/deploy-local-parity.sh
 ```
 
-Flags:
-
 | Flag | Effect |
 |------|--------|
-| (none) | Compose up `--build` + `/metadata` smoke (default) |
-| `--with-tests` | Run the Tests gate first (full pipeline shape) |
+| (none) | Compose up `--build` + `/metadata` on `:8081` |
+| `--with-tests` | Run Tests gate first |
 | `--skip-build` | Compose `up -d` without `--build` |
 
 Or by hand:
 
 ```bash
 export SAPASSWORD=L0cal-Dev-Pwd1
-# optional: Tests gate (Microsoft Testing Platform — not VSTest --filter)
-dotnet test src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj \
-  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code "5;8"
-dotnet test test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj \
-  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code "5;8"
-
 docker compose \
   -f samples/docker/docker-compose.yaml \
   -f .cursor/skills/local-setup/docker-compose.local.yaml \
-  -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+  -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
   up -d --build
-
-# smoke — expect 200 within ~5 minutes
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/metadata
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8081/metadata
 ```
 
-PowerShell smoke:
+Tear down **only** the deploy stack:
 
-```powershell
-$env:SAPASSWORD = "L0cal-Dev-Pwd1"
-# … same docker compose up …
-(Invoke-WebRequest http://localhost:8080/metadata -UseBasicParsing).StatusCode  # 200
+```bash
+docker compose \
+  -f samples/docker/docker-compose.yaml \
+  -f .cursor/skills/local-setup/docker-compose.local.yaml \
+  -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
+  down
 ```
-
-**Do not** run compose `down -v` as part of Deploy to Dev locally unless the user asks to tear down (then use local-teardown).
-
----
 
 ## Checklist
 
 ```
 Deploy to Dev
 - [ ] Path chosen (A CI or B local)
-- [ ] deploy-to-dev.yml is the source of truth for steps
-- [ ] Tests gate green (CI job or --with-tests)
-- [ ] Compose uses the three MidSizedClinic files (not samples alone)
-- [ ] GET http://localhost:8080/metadata → 200 (local) OR Deploy job green (CI)
-- [ ] No PHI in logs or agent output
-- [ ] If demo needed next → hand off to local-setup (not this skill)
+- [ ] Uses docker-compose.deploy.yaml (project midsizedclinic-deploy), not demo :1433 overlay alone
+- [ ] Smoke on :8081 (not :8080)
+- [ ] local-setup on :8080 left alone
+- [ ] No PHI in logs
 ```
 
 ## Forbidden
 
 | Do not | Why |
 |--------|-----|
-| Treat Dev as Azure/prod | Dev = local Docker only in this kit |
-| Skip the Tests job when claiming full CI Deploy to Dev | Pipeline order is Tests → Deploy |
-| `docker compose down -v` after a successful local deploy | Wipes the Dev you just stood up |
-| Start from `samples/docker` alone | Missing Authority / ASSEMBLY_VER / SQL :1433 overlays |
+| Deploy with only local-setup + demo overlays | Replaces / fights `:8080`/`:1433` |
+| Point demo app at `:1434` without intending to | Wrong SQL for day-to-day local-setup |
+| `local-teardown` for the deploy project | Tears down the wrong compose project |
 | Duplicate a second deploy workflow | One pipeline: `deploy-to-dev.yml` |
 
 ## Related
 
 - Workflow: [`.github/workflows/deploy-to-dev.yml`](../../../.github/workflows/deploy-to-dev.yml)
-- Workstation full stack: [local-setup](../local-setup/SKILL.md)
-- Stop Dev: [local-teardown](../local-teardown/SKILL.md)
-- ImagingStudy wiring that feeds the Tests filter: [add-fhir-resource-type](../add-fhir-resource-type/SKILL.md)
+- Overlay: [docker-compose.deploy.yaml](docker-compose.deploy.yaml)
+- Workstation stack: [local-setup](../local-setup/SKILL.md)
+- Stop workstation stack: [local-teardown](../local-teardown/SKILL.md)

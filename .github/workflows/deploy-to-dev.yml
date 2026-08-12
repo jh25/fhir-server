@@ -1,5 +1,6 @@
-# MidSizedClinic — Deploy to Dev (local Docker).
-# Pipeline: Tests gate → Deploy (compose + /metadata smoke).
+# MidSizedClinic — Deploy to Dev (side-by-side local Docker stack).
+# Pipeline: Tests gate + Deploy run in parallel (Deploy uses project midsizedclinic-deploy
+# on :8081/:1434 so it does not replace local-setup on :8080/:1433).
 # Required status check name (branch protection): "Deploy"
 name: Deploy to Dev
 
@@ -16,15 +17,13 @@ concurrency:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  # Same complexity-satisfying password used by local-setup
   SAPASSWORD: L0cal-Dev-Pwd1
+  # Side-by-side stack (see docker-compose.deploy.yaml)
+  FHIR_DEPLOY_PORT: "8081"
 
 jobs:
-  # Gate before deploy. This repo enables Microsoft Testing Platform
-  # (Directory.Build.props TestingPlatformDotnetTestSupport) — use MTP args after `--`,
-  # not VSTest --filter/--logger (those fail with "Unknown option" / exit 5).
-  # MidSizedClinic scope: treenode filter *ImagingStudy* (add-fhir-resource-type tests).
-  # Exit code 5 = zero tests matched — allowed until ImagingStudy tests are wired.
+  # Gate. MTP args after `--` (not VSTest --filter/--logger).
+  # Exit 5/8 = zero ImagingStudy matches — allowed until tests are wired.
   tests:
     name: Tests
     runs-on: ubuntu-latest
@@ -46,9 +45,6 @@ jobs:
       - name: Test — ImagingStudy scope (MTP)
         run: |
           set -euo pipefail
-          # Args after -- are Microsoft.Testing.Platform (not VSTest).
-          # Exit 5/8 = zero tests matched (code varies by MTP version) — OK until
-          # *ImagingStudy* tests exist via add-fhir-resource-type.
           run_filtered() {
             local proj="$1"
             local code=0
@@ -82,30 +78,31 @@ jobs:
           path: TestResults/**
           if-no-files-found: ignore
 
+  # Parallel with Tests. Own compose project + ports — does not replace local-setup stack.
   deploy:
     name: Deploy
-    needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Docker Compose up (local-setup equivalent)
+      - name: Docker Compose up (midsizedclinic-deploy on :8081)
         run: |
           set -euo pipefail
           docker compose \
             -f samples/docker/docker-compose.yaml \
             -f .cursor/skills/local-setup/docker-compose.local.yaml \
-            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             up -d --build
 
       - name: Smoke test — GET /metadata == 200
         run: |
           set -euo pipefail
-          echo "Waiting for FHIR /metadata on :8080 ..."
+          port="${FHIR_DEPLOY_PORT}"
+          echo "Waiting for FHIR /metadata on :${port} (deploy stack) ..."
           for i in $(seq 1 60); do
-            code=$(curl -s -o /tmp/fhir-metadata.json -w "%{http_code}" http://localhost:8080/metadata || true)
+            code=$(curl -s -o /tmp/fhir-metadata.json -w "%{http_code}" "http://localhost:${port}/metadata" || true)
             if [ "$code" = "200" ]; then
               echo "metadata OK (attempt $i)"
               head -c 200 /tmp/fhir-metadata.json || true
@@ -119,20 +116,20 @@ jobs:
           docker compose \
             -f samples/docker/docker-compose.yaml \
             -f .cursor/skills/local-setup/docker-compose.local.yaml \
-            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             ps || true
           docker compose \
             -f samples/docker/docker-compose.yaml \
             -f .cursor/skills/local-setup/docker-compose.local.yaml \
-            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             logs --tail=80 fhir-api || true
           exit 1
 
-      - name: Docker Compose down
+      - name: Docker Compose down (deploy stack only)
         if: always()
         run: |
           docker compose \
             -f samples/docker/docker-compose.yaml \
             -f .cursor/skills/local-setup/docker-compose.local.yaml \
-            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             down -v || true

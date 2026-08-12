@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Local parity for Deploy to Dev (.github/workflows/deploy-to-dev.yml).
-# Compose up + GET /metadata — leaves the stack running (unlike CI's down -v).
+# Uses compose project midsizedclinic-deploy on :8081/:1434 — does NOT replace
+# local-setup (docker / :8080/:1433). Leaves the deploy stack running (CI downs it).
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,6 +17,7 @@ for arg in "$@"; do
     --skip-build) skip_build=1 ;;
     -h|--help)
       echo "Usage: deploy-local-parity.sh [--with-tests] [--skip-build]"
+      echo "Deploys side-by-side stack midsizedclinic-deploy (FHIR :8081, SQL :1434)."
       exit 0
       ;;
     *)
@@ -35,12 +37,13 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 export SAPASSWORD="${SAPASSWORD:-L0cal-Dev-Pwd1}"
+fhir_port="${FHIR_DEPLOY_PORT:-8081}"
 
 compose=(
   docker compose
   -f samples/docker/docker-compose.yaml
   -f .cursor/skills/local-setup/docker-compose.local.yaml
-  -f midsizedclinic-demo-app/docker-compose.demo.yaml
+  -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml
 )
 
 if [[ "$with_tests" -eq 1 ]]; then
@@ -49,33 +52,41 @@ if [[ "$with_tests" -eq 1 ]]; then
     exit 1
   fi
   echo "== Tests gate (MTP *ImagingStudy*; same as CI Deploy to Dev) =="
-  # Directory.Build.props enables Microsoft Testing Platform — use args after --.
-  # Exit 5 = zero matches (OK until ImagingStudy tests are wired).
+  set +e
   dotnet test \
     src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj \
     --configuration Release \
     -- \
     --treenode-filter "*ImagingStudy*" \
     --ignore-exit-code "5;8"
+  c1=$?
   dotnet test \
     test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj \
     --configuration Release \
     -- \
     --treenode-filter "*ImagingStudy*" \
     --ignore-exit-code "5;8"
+  c2=$?
+  set -e
+  for code in "$c1" "$c2"; do
+    if [[ "$code" -ne 0 && "$code" -ne 5 && "$code" -ne 8 ]]; then
+      echo "ERROR: Tests gate failed with exit $code" >&2
+      exit "$code"
+    fi
+  done
 fi
 
-echo "== Docker Compose up (local-setup equivalent; leave running) =="
+echo "== Docker Compose up (project midsizedclinic-deploy; leave running) =="
 if [[ "$skip_build" -eq 1 ]]; then
   "${compose[@]}" up -d
 else
   "${compose[@]}" up -d --build
 fi
 
-echo "== Smoke: GET http://localhost:8080/metadata =="
+echo "== Smoke: GET http://localhost:${fhir_port}/metadata =="
 ok=0
 for i in $(seq 1 60); do
-  code="$(curl -s -o /tmp/fhir-metadata-deploy-dev.json -w "%{http_code}" http://localhost:8080/metadata || true)"
+  code="$(curl -s -o /tmp/fhir-metadata-deploy-dev.json -w "%{http_code}" "http://localhost:${fhir_port}/metadata" || true)"
   if [[ "$code" == "200" ]]; then
     echo "metadata OK (attempt $i)"
     ok=1
@@ -94,5 +105,8 @@ fi
 
 echo
 echo "Deploy to Dev (local parity) succeeded."
-echo "FHIR: http://localhost:8080/metadata"
-echo "Tear down later with local-teardown (do not down -v unless you intend to wipe SQL)."
+echo "FHIR (deploy stack): http://localhost:${fhir_port}/metadata"
+echo "local-setup (if running) stays on :8080 — this did not replace it."
+echo "Tear down deploy stack only:"
+echo "  docker compose -f samples/docker/docker-compose.yaml -f .cursor/skills/local-setup/docker-compose.local.yaml -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml down"
+echo "Do not use local-teardown for this stack (that targets the local-setup project)."
