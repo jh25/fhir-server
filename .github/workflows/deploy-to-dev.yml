@@ -47,10 +47,13 @@ jobs:
         run: |
           set -euo pipefail
           # Args after -- are Microsoft.Testing.Platform (not VSTest).
-          # --ignore-exit-code 5: zero matches is OK until *ImagingStudy* tests exist.
+          # Exit 5/8 = zero tests matched (code varies by MTP version) — OK until
+          # *ImagingStudy* tests exist via add-fhir-resource-type.
           run_filtered() {
             local proj="$1"
+            local code=0
             echo "=== $proj ==="
+            set +e
             dotnet test "$proj" \
               --configuration Release \
               --no-restore \
@@ -58,7 +61,15 @@ jobs:
               --treenode-filter "*ImagingStudy*" \
               --report-trx \
               --results-directory TestResults \
-              --ignore-exit-code 5
+              --ignore-exit-code "5;8"
+            code=$?
+            set -e
+            if [[ "$code" -eq 0 || "$code" -eq 5 || "$code" -eq 8 ]]; then
+              echo "Tests gate OK for $proj (exit $code — 5/8 means zero ImagingStudy matches)"
+              return 0
+            fi
+            echo "ERROR: test run failed for $proj with exit $code" >&2
+            return "$code"
           }
           run_filtered src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj
           run_filtered test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj

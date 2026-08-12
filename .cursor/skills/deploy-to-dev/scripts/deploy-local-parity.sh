@@ -56,13 +56,13 @@ if [[ "$with_tests" -eq 1 ]]; then
     --configuration Release \
     -- \
     --treenode-filter "*ImagingStudy*" \
-    --ignore-exit-code 5
+    --ignore-exit-code "5;8"
   dotnet test \
     test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj \
     --configuration Release \
     -- \
     --treenode-filter "*ImagingStudy*" \
-    --ignore-exit-code 5
+    --ignore-exit-code "5;8"
 fi
 
 echo "== Docker Compose up (local-setup equivalent; leave running) =="

@@ -73,7 +73,7 @@ Jobs (tests are part of deploy, not a separate product):
 
 | Job `name` | Role |
 |------------|------|
-| Tests | Gate: MTP `--treenode-filter "*ImagingStudy*"` on R4 unit + E2E (exit 5 / zero matches allowed until tests are wired) |
+| Tests | Gate: MTP `--treenode-filter "*ImagingStudy*"` on R4 unit + E2E (exit 5/8 / zero matches allowed until tests are wired) |
 | Deploy | Compose up → `/metadata` → compose `down -v` (ephemeral runner) |
 
 5. Report Pass/Fail with the run URL. Do **not** log PHI; metadata JSON snippets are fine (CapabilityStatement, not patient data).
@@ -104,9 +104,9 @@ Or by hand:
 export SAPASSWORD=L0cal-Dev-Pwd1
 # optional: Tests gate (Microsoft Testing Platform — not VSTest --filter)
 dotnet test src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj \
-  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code 5
+  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code "5;8"
 dotnet test test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj \
-  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code 5
+  --configuration Release -- --treenode-filter "*ImagingStudy*" --ignore-exit-code "5;8"
 
 docker compose \
   -f samples/docker/docker-compose.yaml \
