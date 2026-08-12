@@ -146,6 +146,18 @@ code {
   border: 1px solid #8a6d1f;
 }
 
+.design-indicator {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  background: #16324a;
+  color: #9ed7ff;
+  border: 1px solid #3a6f94;
+  font-family: var(--mono);
+}
+
 .sys-status {
   font-size: 0.78rem;
   color: #b7c9d4;
