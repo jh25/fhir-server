@@ -1,150 +1,171 @@
 ---
 name: add-fhir-resource-type
 description: >-
-  Guides engineers through adding or properly wiring a FHIR resource type on the
-  Microsoft FHIR Server with interactive prompts: choose the type, gather HL7
-  search params and required fields, then walk KnownResourceTypes, search
-  extraction, conformance, validators, unit+E2E tests (FHIR-02), and REST
-  verification. Prefers ImagingStudy for MidSizedClinic. Use when the user runs
-  /add-fhir-resource-type, says "add a FHIR resource type", "wire ImagingStudy",
-  or asks how to extend supported resources.
+  Guides engineers through integrating a FHIR resource type into the Microsoft
+  FHIR Server across three levels: FHIR spec (Firely), codebase integration
+  (KnownResourceTypes, conformance, validators, tests), and clinic capability
+  (REST instead of direct SQL). Interactive: identify resource, verify spec,
+  diagnose gaps, choose goal, execute. Prefers ImagingStudy. Use when the user
+  runs /add-fhir-resource-type, says "wire ImagingStudy", "integrate a resource
+  type", or asks how to extend server capabilities for a resource.
 disable-model-invocation: false
 ---
 
 # Add FHIR Resource Type
 
-Interactive guide for an **engineer extending the Microsoft FHIR Server**. Outcome:
-a real, testable contribution — not a slide.
+Guide engineers through **integrating a FHIR resource type** into the Microsoft
+FHIR Server. Audience: engineer extending server capabilities. Outcome: the
+resource is **usable via FHIR REST API** with honest gaps closed at the right
+level — not a slide, not “add a const and hope.”
 
-Follow **FHIR-00** (Medino / `IFhirDataStore` / authz-first), **FHIR-02** (xUnit +
-NSubstitute + AAA). Deep patterns:
+Pairs with [remove-fhir-resource-type](../remove-fhir-resource-type/SKILL.md)
+(unregister wiring without deleting `dbo.Resource` data).
+
+Follow **FHIR-00**, **FHIR-02**. Deep patterns:
 [architecture-explained.md](../../docs/midsizedclinic/rule-explanations/architecture-explained.md).
-Imaging clinic contracts (when type is ImagingStudy): **FHIR-10**–**FHIR-13**.
+ImagingStudy clinic contracts: **FHIR-10**–**FHIR-13**. Spec metadata:
+`Hl7.Fhir.Model.ModelInfo`, `Hl7.Fhir.Specification.*`, Specification.Data.
 
-Resource metadata / required elements: HL7 Firely packages
-(`Hl7.Fhir.Model.ModelInfo`, `Hl7.Fhir.Specification.*`, structure defs via
-Specification.Data) — do not invent fields.
+## Three levels (diagnose before coding)
 
-## Critical discovery (ask early)
+| Level | Meaning | How to verify |
+|-------|---------|----------------|
+| **1. FHIR spec** | Resource is defined in the HL7 standard for this version | Firely `ModelInfo.IsKnownResource` / `SupportedResources`; StructureDefinition in Specification.Data; HL7 docs |
+| **2. Codebase integration** | Type is wired for maintainable product use | `KnownResourceTypes` const; search-params / converters OK; `/metadata`; validators (generic + clinic); unit + E2E (FHIR-02) |
+| **3. Clinic capability** | Clinic can use the resource via **FHIR REST** instead of direct SQL | Create/read/search/compartment over HTTP; apps (e.g. worklist) call REST; FHIR-10 rules enforced where required |
 
-**MidSizedClinic priority:** recommend **ImagingStudy** first unless the engineer
-has another explicit type.
+**Important distinctions**
 
-Tell them plainly:
+- Level 1 **does not** imply level 2. Spec-defined types can still lack consts, clinic validators, and tests.
+- Level 1 + generic hosting often already allows basic REST; level 2/3 close **integration and clinic** gaps (constants, FHIR-10, tests, stop SQL bypasses).
+- `KnownResourceTypes` is **codebase integration** (constants / special cases) — **not** the Firely allowlist. Do not teach “add const to enable CRUD.”
 
-- ImagingStudy is in **Firely `ModelInfo`**, R4 `search-parameters.json`,
-  `compartment.json`, SQL `ResourceType` seeding, and
-  `src/Microsoft.Health.Fhir.Tests.Common/TestFiles/R4/imagingstudy-example.json`.
-- It is **absent from** `KnownResourceTypes.cs` — that file is **not** the API
-  allowlist; engineers often mistake “missing const” for “not wired.”
-- Typical first contribution for ImagingStudy: add the `KnownResourceTypes`
-  constant, verify create/search/compartment REST, add **FHIR-10** required-field
-  validation if missing, and ship **unit + E2E** coverage for clinic flows.
+### Recommended starter: ImagingStudy
 
-Do **not** teach “add to KnownResourceTypes to enable CRUD.” Firely
-`ModelInfo.IsKnownResource` / `GetResourceTypeNames()` drives routing and
-CapabilityStatement. `KnownResourceTypes` is for compile-time constants and
-special-case logic.
+| Level | ImagingStudy (R4) |
+|-------|-------------------|
+| **1 Spec** | **Exists** — Firely; `Data/R4/search-parameters.json`; `compartment.json`; `TestFiles/R4/imagingstudy-example.json` (HL7 sample — incomplete for FHIR-10) |
+| **2 Codebase** | Prefer re-verify: const `KnownResourceTypes.ImagingStudy`; `ImagingStudyRequiredFieldsValidator`; unit + E2E (`ImagingStudyTests`). If already present, skip to Level 3 / remaining gaps. |
+| **3 Clinic** | Demo worklist may still use SQL (`midsizedclinic-demo-app`) — Level 3 is “apps call FHIR REST”, not more server wiring |
 
-## Interactive prompts (required — ask before coding)
+Default suggestion unless the engineer names another type: **ImagingStudy**.
 
-Copy and fill:
+## Agent fast path (do not rediscover)
+
+Go **straight to these files**. Avoid broad `**/Validator*` / architecture tours.
+
+| Goal | Path / action |
+|------|----------------|
+| Const | `src/Microsoft.Health.Fhir.Core/Models/KnownResourceTypes.cs` (alpha insert) |
+| Spec search params | `rg '"ImagingStudy"' src/Microsoft.Health.Fhir.Core/Data/R4/search-parameters.json` — already present; **do not** edit HL7 JSON for ImagingStudy |
+| Compartment | `Data/R4/compartment.json` — already lists ImagingStudy |
+| Conformance | No code change — `GET /metadata` from `GetResourceTypeNames()` / Firely |
+| Clinic required fields | Add/extend `AbstractValidator<ResourceElement>` like `NarrativeValidator`; **compose** in `ResourceElementValidator` with `RuleFor(x => x).SetValidator(new …())` |
+| Existing FHIR-10 validator | `src/Microsoft.Health.Fhir.Core/Features/Validation/ImagingStudyRequiredFieldsValidator.cs` |
+| Wire point | `src/Microsoft.Health.Fhir.Core/Features/Validation/ResourceElementValidator.cs` — Create/Upsert already nest this; **no** new DI / no handler-only checks |
+| Issue shape | `FhirValidationFailure` + `OperationOutcomeIssue` + `OperationOutcomeConstants.IssueType.Required` |
+| Unit tests | `src/Microsoft.Health.Fhir.Shared.Core.UnitTests/Features/Validation/ImagingStudyRequiredFieldsValidatorTests.cs` |
+| Unit projitems | **Must** add `<Compile Include=…>` to `Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems` |
+| E2E tests | `test/Microsoft.Health.Fhir.Shared.Tests.E2E/Rest/ImagingStudyTests.cs` + entry in `Microsoft.Health.Fhir.Shared.Tests.E2E.projitems` |
+| E2E usings | `Microsoft.Health.Fhir.Core.Extensions` for `.ToPoco<T>()` |
+| Clinic sample JSON | `TestFiles/R4/imagingstudy-clinic-required.json` (+ EmbeddedResource in `Tests.Common.csproj`). **Do not** use `imagingstudy-example.json` for FHIR-10 happy path (missing study-level `modality` / `description`) |
+| Verify unit | `dotnet test src/Microsoft.Health.Fhir.R4.Core.UnitTests/… --filter FullyQualifiedName~ImagingStudyRequiredFieldsValidatorTests` |
+| Verify E2E compile | `dotnet build test/Microsoft.Health.Fhir.R4.Tests.E2E/…` (full E2E needs host/DB) |
+
+**Pitfalls (costly if rediscovered)**
+
+1. **`ITypedElement.Scalar("started") as string` is wrong** — dateTime often returns `DateTimeOffset`; use `value?.ToString()` / non-empty check.
+2. **FHIR-10 study-level `modality` is R4+** — skip clinic rules when `ModelInfoProvider.Version == FhirSpecification.Stu3`; wrap POCO ImagingStudy modality tests in `#if !Stu3`.
+3. **Nested validators use `new`, not DI** — `ValidationModule` registers request `IValidator<>`; `ResourceElementValidator` children are constructed inline (same as Narrative).
+4. **Shared projects need projitems** — new `.cs` under `Shared.*.UnitTests` / `Shared.Tests.E2E` is invisible until listed.
+5. **A+B+C does not require converter or CapabilityStatement edits** for ImagingStudy — search/metadata already work via Firely.
+
+## Interactive workflow (required — ask before coding)
+
+Simple questions. Answer one at a time:
 
 ```
-Resource type work:
-- [ ] 1. Which resource type? (default suggestion: ImagingStudy)
-- [ ] 2. FHIR version target? (MidSizedClinic / Docker default: R4)
-- [ ] 3. Already in ModelInfo / GET /metadata? (yes / no / unknown — verify)
-- [ ] 4. Goal: KnownResourceTypes const + tests | custom search | clinic validation (FHIR-10) | other
-- [ ] 5. Spec checklist: required elements + search params gathered from HL7
+1. Which resource type? (or press enter for ImagingStudy)
+   → ImagingStudy
+
+2. FHIR version? (or press enter for R4)
+   → R4
+
+3. Verify spec exists? (rg Data/R4 — ImagingStudy already in search-params + compartment)
+
+4. Re-verify codebase gaps (do not assume missing — check fast-path files first):
+   A: KnownResourceTypes.ImagingStudy
+   B: ImagingStudyRequiredFieldsValidator (+ ResourceElementValidator wire)
+   C: unit + E2E ImagingStudy tests in projitems
+   
+5. Which gaps to fix this pass?
+   Only missing ones · A+B+C if greenfield · Level 3 app REST if server already done
 ```
 
-Ask conversationally if answers are missing. Prefer one question at a time when
-the engineer is unsure.
+### Spec gather (after type + version chosen)
 
-### Gather from the FHIR spec (before edits)
+1. Required / mustSupport elements — Firely POCO + StructureDefinition.
+2. Search parameters — `src/Microsoft.Health.Fhir.Core/Data/{version}/search-parameters.json`
+   (+ `ms-search-parameters.json` / `unsupported-search-parameters.json`).
+3. Compartments — `compartment.json`.
+4. ImagingStudy clinic create — also FHIR-10: status, modality, started, description, subject → Patient.
 
-For the chosen type + version:
-
-1. **Required / mustSupport elements** — Firely POCO + StructureDefinition
-   (Specification.Data / HL7 docs). For ImagingStudy clinic create, also apply
-   FHIR-10 (status, modality, started, description, subject → Patient).
-2. **Standard search parameters** — confirm entries in
-   `src/Microsoft.Health.Fhir.Core/Data/{R4|...}/search-parameters.json`
-   (and `ms-search-parameters.json` / `unsupported-search-parameters.json`).
-3. **Compartment membership** — `compartment.json` (Patient compartment includes
-   ImagingStudy by `subject`).
-
-## Workflow checklist
+## Execute checklist (level 2 → prove level 3)
 
 ```
-Add / wire resource type:
-- [ ] 0. Discovery + spec gather (prompts above)
+Integrate resource type:
+- [ ] 0. Three-level diagnosis + goal locked
 - [ ] 1. KnownResourceTypes const
-- [ ] 2. Search param extraction
-- [ ] 3. Conformance / CapabilityStatement
-- [ ] 4. Validators
+- [ ] 2. Search param extraction (verify / fix)
+- [ ] 3. Conformance / CapabilityStatement (verify /metadata)
+- [ ] 4. Validators (generic; + FHIR-10 if in goal)
 - [ ] 5. Unit + E2E tests (FHIR-02)
-- [ ] 6. Verify REST API
+- [ ] 6. Verify REST API (clinic capability proof)
 ```
 
-### 1. Add const to KnownResourceTypes
+### 1. KnownResourceTypes const
 
 File: `src/Microsoft.Health.Fhir.Core/Models/KnownResourceTypes.cs`
 
-- Add `public const string {Type} = "{Type}";` (alphabetical / local style).
-- Use the constant in new special-case code instead of string literals.
-- Reminder: this does **not** register the type with Firely; it documents intent
-  and enables typed references in Core/Api.
+- Add `public const string {Type} = "{Type}";`.
+- Use it in new special-case / clinic code instead of string literals.
+- Does **not** register the type with Firely — level 2 documentation + typed references.
 
-### 2. Wire / verify search param extraction
+### 2. Search param extraction
 
-- Confirm base search params exist in embedded `search-parameters.json` for the type.
-- Extraction path is generic: `TypedElementSearchIndexer` + converters under
-  `src/Microsoft.Health.Fhir.Core/Features/Search/Converters/`.
-- **Only** add/adjust a converter if a FHIR *element datatype* is unsupported —
-  not one converter per resource type.
-- If a param is wrongly unsupported, check `unsupported-search-parameters.json`
-  and support tests (e.g. search converter coverage tests).
-- ImagingStudy: params already present in R4 data; verify compartment search
-  `GET /Patient/{id}/ImagingStudy` (FHIR-10).
+- Confirm embedded search params for the type (ImagingStudy: already in R4 data).
+- Generic path: `TypedElementSearchIndexer` + `Features/Search/Converters/`.
+- Add/adjust a converter **only** for unsupported FHIR *element datatypes*.
+- ImagingStudy: verify compartment search `GET /Patient/{id}/ImagingStudy` (FHIR-10).
 
-### 3. Update / verify conformance provider
+### 3. Conformance / CapabilityStatement
 
-- CapabilityStatement resources come from
-  `IModelInfoProvider.GetResourceTypeNames()` via
-  `CapabilityStatementBuilder.PopulateDefaultResourceInteractions` — **not**
-  from KnownResourceTypes.
-- After host is up: `GET /metadata` and confirm the type + interactions + search
-  params.
-- Touch CapabilityStatement / `KnownRoutes` **only** for true special cases
-  (e.g. AuditEvent no update/delete, type-specific operations).
+- Built from `IModelInfoProvider.GetResourceTypeNames()` — not KnownResourceTypes.
+- Verify `GET /metadata` lists type + interactions + search params.
+- Touch CapabilityStatement / `KnownRoutes` only for true special cases.
 
 ### 4. Validators
 
-- Default path is generic: create/upsert FluentValidation →
-  `ResourceContentValidator` / Firely attribute validation; optional profile
-  validation via Specification.Data.
-- **Do not** invent a parallel validator stack.
-- MidSizedClinic ImagingStudy: enforce FHIR-10 required fields (reject with
-  `OperationOutcome` `required`) in the **handler/validator pipeline**, still
-  authz-first and `IFhirDataStore` only (FHIR-00).
+- Default: FluentValidation → `ResourceContentValidator` / Firely attributes; optional profiles via Specification.Data.
+- Do **not** invent a parallel validator stack or handler-only clinic checks.
+- FHIR-10 ImagingStudy: `ImagingStudyRequiredFieldsValidator` composed into `ResourceElementValidator` (covers create + upsert). Reuse if present; extend only if rules change.
+- Authz stays in handlers (FHIR-00); validation stays in FluentValidation → `OperationOutcome`.
 
 ### 5. Unit + E2E tests (FHIR-02)
 
-| Layer | What to prove | Pattern |
-|-------|---------------|---------|
-| Unit | Authz first; store called; required-field rejection | xUnit + NSubstitute; mock `IFhirDataStore` / `IAuthorizationService`; AAA |
-| E2E | HTTP create / read / search / compartment | `TestFhirClient` + `HttpIntegrationTestFixture`; samples under `Microsoft.Health.Fhir.Tests.Common` |
+| Layer | Prove | Pattern |
+|-------|-------|---------|
+| Unit | FHIR-10 reject/accept; no-op for other types | xUnit AAA on validator directly (see `ImagingStudyRequiredFieldsValidatorTests`) |
+| E2E | HTTP create 201; incomplete → 400; compartment scoped | `TestFhirClient` + `HttpIntegrationTestFixture` (`ImagingStudyTests`) |
 
-- Naming: `Given{Precondition}_When{Action}_Then{Result}` (or equivalent scenario name).
-- Reuse `imagingstudy-example.json` or add a clinic-shaped sample that includes
-  FHIR-10 fields — **tests only**, never production fixture reads (FHIR-01).
-- Build succeeds before adding tests (`AGENTS.md`).
+- Naming: `Given{Precondition}_When{Action}_Then{Result}`.
+- Build POCO in test or use `imagingstudy-clinic-required.json` — not the stock HL7 example for happy path.
+- Register new test files in **projitems** + EmbeddedResource in `Tests.Common.csproj` when adding JSON.
+- Build before writing tests (`AGENTS.md`). Prefer unit filter above before full E2E.
 
-### 6. Verify REST API works
+### 6. Verify REST API (level 3 proof)
 
-Against local R4 host (use **local-setup** if needed):
+Local R4 host (**local-setup** if needed):
 
 ```http
 GET  /metadata
@@ -153,36 +174,35 @@ GET  /ImagingStudy/{id}
 GET  /Patient/{patientId}/ImagingStudy?_sort=-started
 ```
 
-Expect: type listed in CapabilityStatement; create returns 201 + Location/ETag;
-compartment returns only that patient’s studies. No raw SQL; no PHI in logs.
+Expect: listed in CapabilityStatement; 201 + Location/ETag on create; compartment
+scoped to that patient. No raw SQL in Core/Api; no PHI in logs. Clinic apps should
+call these APIs — not `dbo.Resource` directly.
 
-## References (one level)
+## References
 
 | Doc / rule | Use |
 |------------|-----|
 | [.cursor/rules/FHIR-00-architecture-patterns.mdc](../../rules/FHIR-00-architecture-patterns.mdc) | Medino, IFhirDataStore, authz-first |
 | [.cursor/rules/FHIR-02-testing-patterns.mdc](../../rules/FHIR-02-testing-patterns.mdc) | xUnit, NSubstitute, AAA |
-| [architecture-explained.md](../../docs/midsizedclinic/rule-explanations/architecture-explained.md) | Deep architecture |
-| FHIR-10–13 MidSizedClinic imaging rules | ImagingStudy/DiagnosticReport clinic contracts |
-| `Hl7.Fhir.Model.ModelInfo` + Specification.Data | Spec metadata / validation source |
-| [checklist.md](checklist.md) | Printable step card |
+| FHIR-10–13 MidSizedClinic imaging rules | Clinic REST contracts |
+| [architecture-explained.md](../../docs/midsizedclinic/rule-explanations/architecture-explained.md) | Architecture depth |
+| `Hl7.Fhir.Model.ModelInfo` + Specification.Data | Spec / validation source |
+| [checklist.md](checklist.md) | Three-level step card |
+| [remove-fhir-resource-type](../remove-fhir-resource-type/SKILL.md) | Reverse wiring; keep DB rows |
 
 ## Anti-patterns
 
-- Claiming a type is “unsupported” only because it is missing from KnownResourceTypes
-- New controller/handler per resource type when generic CRUD already works
-- Raw SQL or bypassing `IFhirDataStore`
-- Business logic in controllers; authz after persistence
-- Moq / NUnit / MSTest
-- Logging PHI from sample ImagingStudy bodies
-- Skipping E2E when the change is HTTP-visible
+- Treating missing `KnownResourceTypes` as “not in the FHIR spec”
+- Teaching const-add as the way to “enable” CRUD
+- New per-type controller when generic CRUD already works
+- Direct SQL for clinic features that should be FHIR REST (fails level 3)
+- Raw SQL / store bypass in handlers (FHIR-00)
+- Moq / NUnit / MSTest; PHI in logs; skipping E2E for HTTP-visible work
 
 ## Done when
 
-- [ ] Spec required fields + search params documented in the PR/description
-- [ ] KnownResourceTypes const added (if that was in scope)
-- [ ] Search/compartment verified; converters only if needed
-- [ ] `/metadata` shows the type
-- [ ] Unit + E2E green (FHIR-02)
-- [ ] Manual REST check passed
-- [ ] FHIR-00 / FHIR-01 respected; ImagingStudy also FHIR-10 if applicable
+- [ ] Three-level diagnosis recorded (spec / codebase / clinic)
+- [ ] Chosen goal completed (minimal const+tests and/or FHIR-10)
+- [ ] `/metadata` + REST create/read/compartment verified
+- [ ] Unit + E2E green (FHIR-02); FHIR-00 / FHIR-01 respected
+- [ ] Clinic path uses REST (no new SQL shortcuts for this resource)
