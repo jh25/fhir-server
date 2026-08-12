@@ -1,0 +1,12 @@
+services:
+  fhir-api:
+    build:
+      args:
+        # Empty ASSEMBLY_VER is what CI's GitVersion step normally fills in. Locally it's
+        # empty, and dotnet publish dies with MSB4044 (GetAssemblyVersion/NuGetVersion) - see setup.sh.
+        ASSEMBLY_VER: "1.0.0"
+    environment:
+      # SecurityProvider's constructor requires this to be non-null even when
+      # Security:Enabled is false. BuildAsync never reads it in that case, so the value
+      # itself is arbitrary - it only needs to exist.
+      FHIRServer__Security__Authentication__Authority: "https://localhost/unused"

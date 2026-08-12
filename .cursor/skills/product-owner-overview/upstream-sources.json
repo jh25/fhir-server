@@ -1,0 +1,80 @@
+{
+  "upstream": {
+    "owner": "microsoft",
+    "repo": "fhir-server",
+    "url": "https://github.com/microsoft/fhir-server",
+    "featuresDoc": "https://learn.microsoft.com/azure/healthcare-apis/fhir-features-supported"
+  },
+  "mcp": {
+    "serverId": "github",
+    "serverIdNote": "In Cursor, discover via GetMcpTools pattern github — often project-0-fhir-server-github",
+    "requiredToolsets": ["repos", "issues", "pull_requests", "labels"],
+    "tools": {
+      "listOpenBacklog": "list_issues",
+      "searchFeatures": "search_issues",
+      "readIssue": "issue_read",
+      "listLabels": "list_label"
+    }
+  },
+  "queries": [
+    {
+      "id": "backlog-open",
+      "purpose": "Microsoft team backlog mirrored on GitHub",
+      "tool": "list_issues",
+      "params": {
+        "owner": "microsoft",
+        "repo": "fhir-server",
+        "state": "open",
+        "labels": ["VSTS-Backlog"],
+        "perPage": 30,
+        "fields": ["title", "number", "labels", "state", "milestone", "created_at", "html_url"]
+      }
+    },
+    {
+      "id": "new-features-open",
+      "purpose": "Upstream feature requests not yet shipped",
+      "tool": "search_issues",
+      "params": {
+        "owner": "microsoft",
+        "repo": "fhir-server",
+        "query": "repo:microsoft/fhir-server is:issue is:open label:\"New Feature\"",
+        "perPage": 20,
+        "fields": ["title", "number", "labels", "state", "milestone", "html_url"]
+      }
+    },
+    {
+      "id": "backlog-milestone",
+      "purpose": "Issues in the catch-all backlog milestone",
+      "tool": "search_issues",
+      "params": {
+        "owner": "microsoft",
+        "repo": "fhir-server",
+        "query": "repo:microsoft/fhir-server is:open milestone:backlog",
+        "perPage": 20,
+        "fields": ["title", "number", "labels", "state", "milestone", "html_url"]
+      }
+    }
+  ],
+  "labelHints": {
+    "VSTS-Backlog": "Synced to internal Azure DevOps User Story",
+    "New Feature": "Public feature request",
+    "Specification": "Spec conformance gap",
+    "Bug": "Defect",
+    "Area-Search": "Search/indexing",
+    "Area-BulkExport": "Bulk export",
+    "Area-Authorization": "Auth/RBAC"
+  },
+  "mappingRules": {
+    "workflowStepToAreaLabel": {
+      "Retrieve prior imaging": "Area-Search",
+      "Store new study": "Area-REST",
+      "Author report": "Area-REST",
+      "Send to referrer": "Area-Authorization",
+      "Audit access": "Area-Operations"
+    },
+    "requirementGapToSearch": {
+      "REQ-006": "repo:microsoft/fhir-server is:issue SMART patient portal",
+      "REQ-008": "repo:microsoft/fhir-server is:issue US Core profile validation"
+    }
+  }
+}

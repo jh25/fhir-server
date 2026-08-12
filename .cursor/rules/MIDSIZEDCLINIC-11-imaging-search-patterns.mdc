@@ -1,0 +1,124 @@
+---
+description: >-
+  FHIR-11 — MANDATORY MidSizedClinic imaging search: compartment-bound queries,
+  modality/date/status filters, indexed fields, _sort=-started, _count≤100.
+  Applies to ImagingStudy search, worklist, and search indexing changes.
+globs: >-
+  **/*ImagingStudy*,**/*Search*,**/Controllers/**,**/clinic-workflow.md,docs/SearchArchitecture.md
+alwaysApply: false
+---
+
+# FHIR-11 — MidSizedClinic Imaging Search Patterns (Mandatory)
+
+All ImagingStudy search paths for MidSizedClinic **MUST** be compartment-safe, filterable, and worklist-fast. Applies with **FHIR-10**, **FHIR-00**, **FHIR-01**. Worklist SLA: study lookup **< 1 second** ([clinic-workflow.md](../skills/product-owner-overview/clinic-workflow.md)).
+
+## 1. Required Search Dimensions
+
+Every imaging search implementation **MUST** support these FHIR search parameters on ImagingStudy:
+
+| Dimension | Parameter | Example |
+|---|---|---|
+| Patient (compartment) | compartment route or `patient` | `GET /Patient/{id}/ImagingStudy` |
+| Modality | `modality` | `modality=US` (ultrasound), `modality=CT` |
+| Date range | `started` | `started=ge2026-01-01&started=le2026-08-11` |
+| Status | `status` | `status=available`, `status=registered` |
+
+- **ALWAYS** combine patient scope with optional modality/date/status filters — never expose unscoped type-level search to clinic apps.
+- **NEVER** drop a required dimension from the CapabilityStatement if MidSizedClinic clients depend on it.
+- **MUST** reject searches that omit patient context for technician worklist flows (return `400` + `OperationOutcome`, not empty success).
+
+**If violated:** worklist cannot filter by modality or date; techs re-run manual queries; clinic workflow breaks.
+
+## 2. Compartment Boundaries — Non-Negotiable
+
+- **ALWAYS** scope queries to one patient partition via `GET /Patient/{patientId}/ImagingStudy` or `ImagingStudy?patient=Patient/{patientId}`.
+- **NEVER** return ImagingStudy resources whose `subject` references a different Patient than the compartment or `patient` parameter.
+- **NEVER** fetch all studies and filter by patient in application code — compartment enforcement **MUST** happen in the search/data store layer.
+- **MUST** preserve compartment rewriters and patient filters in SQL/Cosmos search plans (per FHIR-01).
+
+```http
+# ✅ RIGHT — compartment route; server enforces patient partition
+GET /Patient/pat-1001/ImagingStudy?modality=US&status=available
+
+# ✅ RIGHT — type search with explicit patient reference
+GET /ImagingStudy?patient=Patient/pat-1001&modality=US
+
+# ❌ WRONG — unscoped type search for worklist (cross-patient risk)
+GET /ImagingStudy?modality=US&_count=500
+
+# ❌ WRONG — handler loads all, filters in memory
+GET /ImagingStudy?_count=1000
+# ... then client-side: .Where(s => s.Subject.Reference == patientId)
+```
+
+```csharp
+// ❌ WRONG — cross-patient leak vector
+var bundle = await SearchAsync("ImagingStudy", cancellationToken);
+return bundle.Entry.Where(e => e.SubjectMatches(patientId));
+
+// ✅ RIGHT — patient bound at query layer
+var request = new SearchResourceRequest(
+    "ImagingStudy",
+    new[] { ("patient", $"Patient/{patientId}"), ("modality", "US") });
+```
+
+**If violated:** cross-patient PHI leak (HIPAA breach); failed minimum-necessary audit; incident response required.
+
+## 3. Indexing — Modality and Date for Worklist Performance
+
+- **MUST** ensure `modality` and `started` are indexed searchable parameters for ImagingStudy in the active FHIR version (R4).
+- **NEVER** ship a worklist query plan that full-scans the resource table without modality/date predicates when filters are provided.
+- **MUST** verify new search parameters or handlers against `docs/SearchArchitecture.md` — indexing changes belong in SqlServer/Cosmos search layers only (FHIR-00).
+- **ALWAYS** use composite filters (`patient` + `modality` + `started`) for technician prior-history views — single-column scans are not acceptable at 50–100 encounters/week scale and growth.
+
+**If violated:** worklist exceeds 1s SLA; SQL time-outs under load; technicians wait at check-in.
+
+## 4. Sorting — Newest First
+
+- **ALWAYS** default worklist and prior-history searches to **`_sort=-started`** (newest study first).
+- **MUST** support `_sort=started` when explicitly requested — but **NEVER** default to ascending for tech worklist UIs.
+- **NEVER** sort in the client when the server can sort via indexed `started`.
+
+```http
+# ✅ RIGHT — VERA-1042 / worklist default
+GET /Patient/pat-1001/ImagingStudy?modality=US&_sort=-started&_count=50
+
+# ❌ WRONG — no sort; undefined order confuses worklist
+GET /Patient/pat-1001/ImagingStudy?modality=US
+```
+
+**If violated:** techs see stale studies first; wrong study selected; clinical context errors.
+
+## 5. Pagination — 100 Studies Max Per Request
+
+- **MUST** paginate all ImagingStudy search responses as FHIR `Bundle` (`type=searchset`) with `link` (`rel=next`).
+- **MUST** cap `_count` at **100** — reject or clamp higher values; **NEVER** return unbounded result sets.
+- **ALWAYS** use `_count` ≤ 100 for worklist pages; typical page size **25–50**.
+
+```http
+# ✅ RIGHT
+GET /Patient/pat-1001/ImagingStudy?_sort=-started&_count=50
+
+# ❌ WRONG — unbounded or over cap
+GET /Patient/pat-1001/ImagingStudy?_count=500
+GET /ImagingStudy?patient=Patient/pat-1001
+```
+
+**If violated:** memory pressure, gateway timeouts, mobile worklist crashes, CI E2E flakes.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| Unscoped `GET /ImagingStudy` for clinic worklist | Cross-patient PHI leak |
+| In-memory patient filtering after broad search | Compartment bypass; audit failure |
+| Missing modality/date/status search support | Unusable worklist filters |
+| No index on `modality` or `started` | Slow worklist; SLA breach |
+| Default sort ascending or unsorted | Wrong clinical context at check-in |
+| `_count` > 100 or no pagination | Timeouts; OOM |
+| Custom SQL search in Core/API bypassing search index | FHIR-00 violation; dual-backend break |
+| Stripping compartment rewriters for "performance" | HIPAA breach |
+
+**MUST** add unit tests for compartment boundary + E2E tests for modality/date/status/_sort/_count on ImagingStudy search before merge.

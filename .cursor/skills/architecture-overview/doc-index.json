@@ -1,0 +1,140 @@
+{
+  "docIndex": [
+    {
+      "topic": "Project conventions & layers",
+      "path": "AGENTS.md",
+      "note": "API → Core → persistence; testing; ADR location"
+    },
+    {
+      "topic": "Search & persistence",
+      "path": "docs/SearchArchitecture.md",
+      "note": "Extraction, normalized search values, query path"
+    },
+    {
+      "topic": "Authentication & security",
+      "path": "docs/Authentication.md",
+      "note": "Runtime JWT, development identity provider"
+    },
+    {
+      "topic": "GET request flow (diagram)",
+      "path": "docs/flow diagrams/read-resource.md",
+      "note": "Mermaid: Client → Controller → Handler → IFhirDataStore"
+    },
+    {
+      "topic": "POST request flow (diagram)",
+      "path": "docs/flow diagrams/create-resource.md",
+      "note": "Mermaid: includes SearchIndexer before Upsert"
+    },
+    {
+      "topic": "Search API flow (diagram)",
+      "path": "docs/flow diagrams/search-api.md",
+      "note": "Mermaid: search request through API pipeline"
+    },
+    {
+      "topic": "SQL search path",
+      "path": "docs/flow diagrams/search-sql-server.md",
+      "note": "Search against SQL backend"
+    },
+    {
+      "topic": "Cosmos search path",
+      "path": "docs/flow diagrams/search-cosmos-db.md",
+      "note": "Search against Cosmos backend"
+    },
+    {
+      "topic": "Search indexer (diagram)",
+      "path": "docs/flow diagrams/searchindexer.md",
+      "note": "How searchable values are indexed on write"
+    },
+    {
+      "topic": "Bulk import ($import)",
+      "path": "docs/BulkImport.md",
+      "note": "NDJSON ingress"
+    },
+    {
+      "topic": "Bulk export",
+      "path": "docs/BulkExport.md",
+      "note": "Data egress patterns"
+    },
+    {
+      "topic": "ADR index",
+      "path": "docs/arch/Readme.md",
+      "note": "Architectural decision records"
+    },
+    {
+      "topic": "SQL schema migrations",
+      "path": "docs/SchemaMigrationGuide.md",
+      "note": "Hand-authored schema under SqlServer/Features/Schema"
+    },
+    {
+      "topic": "Persistence abstraction",
+      "path": "src/Microsoft.Health.Fhir.Core/Features/Persistence/IFhirDataStore.cs",
+      "note": "Upsert, Get, Merge, HardDelete"
+    },
+    {
+      "topic": "Route catalog (KnownRoutes)",
+      "path": "src/Microsoft.Health.Fhir.Core/Features/Routing/KnownRoutes.cs",
+      "note": "CRUD, search, history, compartments, $export/$import/bulk/ops"
+    },
+    {
+      "topic": "API entry point",
+      "path": "src/Microsoft.Health.Fhir.Shared.Api/Controllers/FhirController.cs",
+      "note": "REST surface; dispatches via IMediator"
+    },
+    {
+      "topic": "SQL Resource table",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/Resource.sql",
+      "note": "RawResource blob, Version, IsHistory, IsDeleted, partition by ResourceTypeId"
+    },
+    {
+      "topic": "SQL SearchParam catalog",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/SearchParam.sql",
+      "note": "Search parameter URI → SearchParamId"
+    },
+    {
+      "topic": "SQL DateTime search index",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/Tables/DateTimeSearchParam.sql",
+      "note": "Example typed search index table"
+    },
+    {
+      "topic": "GET handler example",
+      "path": "src/Microsoft.Health.Fhir.Shared.Core/Features/Resources/Get/GetResourceHandler.cs",
+      "note": "Authorization then IFhirDataStore"
+    },
+    {
+      "topic": "SQL persistence impl",
+      "path": "src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlServerFhirDataStore.cs",
+      "note": "IFhirDataStore for SQL Server"
+    },
+    {
+      "topic": "Cosmos persistence impl",
+      "path": "src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/CosmosFhirDataStore.cs",
+      "note": "IFhirDataStore for Cosmos DB"
+    },
+    {
+      "topic": "Clinic workflow (product context)",
+      "path": ".cursor/skills/product-owner-overview/clinic-workflow.md",
+      "note": "MidSizedClinic clinical steps — product view, not architecture"
+    }
+  ],
+  "staleDocs": [
+    {
+      "path": "docs/RunningTheProject.md",
+      "issue": "References net6.0; repo targets net10.0 per global.json"
+    },
+    {
+      "path": "AGENTS.md",
+      "issue": "Says MediatR; codebase uses Medino namespace (same handler pattern)"
+    }
+  ],
+  "missingDocs": [
+    {
+      "path": "docs/architecture.md",
+      "issue": "No single architecture overview doc — use AGENTS.md + flow diagrams + this Canvas"
+    }
+  ],
+  "counts": {
+    "docsMd": 64,
+    "flowDiagrams": 9,
+    "adrs": 23
+  }
+}

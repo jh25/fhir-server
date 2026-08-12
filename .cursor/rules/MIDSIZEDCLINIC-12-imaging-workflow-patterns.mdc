@@ -1,0 +1,159 @@
+---
+description: >-
+  FHIR-12 — MANDATORY MidSizedClinic clinical imaging workflow: tech capture,
+  radiologist read/report, status transitions, role separation, report linkage.
+  Applies to ImagingStudy/DiagnosticReport lifecycle and handler authorization.
+globs: >-
+  **/*ImagingStudy*,**/*DiagnosticReport*,**/Controllers/**,**/clinic-workflow.md
+alwaysApply: false
+---
+
+# FHIR-12 — MidSizedClinic Imaging Workflow (Mandatory)
+
+Clinical workflow rules for MidSizedClinic ultrasound operations. Source of truth: [clinic-workflow.md](../skills/product-owner-overview/clinic-workflow.md). Stacks with **FHIR-10**, **FHIR-11**, **FHIR-00**, **FHIR-01**.
+
+Workflow violations break **audit trail**, **role separation**, and **study→report chain of custody**.
+
+## Actors & Sequence
+
+```
+Reception/Tech          Radiologist           Integration/Referrer
+      │                       │                        │
+      ├─ Search prior studies (FHIR-11)                  │
+      ├─ POST ImagingStudy (capture)                    │
+      │                       ├─ GET ImagingStudy/{id} │
+      │                       ├─ POST DiagnosticReport  │
+      │                       │                        ├─ GET DiagnosticReport
+      └─ (audit logged)       └─ (audit logged)         └─ delivery < 5 min SLA
+```
+
+## 1. Technician Workflow — Capture Study
+
+**Actor:** `clinicTechnician` — steps 1–2 in clinic-workflow.md
+
+- **ALWAYS** create studies via `POST /ImagingStudy` after capture (step 2: Technician Captures New Ultrasound).
+- **MUST** set `ImagingStudy.status` to **`available`** on successful capture POST — study is ready for radiologist review.
+- **MUST** set `ImagingStudy.modality` (e.g. `US` for ultrasound) and `started` at capture time.
+- **MUST** set `ImagingStudy.subject` → `Patient/{id}`.
+- **NEVER** set `DiagnosticReport` status or create reports — **technicians CANNOT create DiagnosticReport** (403 + `OperationOutcome`).
+- **NEVER** skip from scheduled intake to `appended` without radiologist report.
+
+```http
+# ✅ RIGHT — technician capture (clinic-workflow step 2)
+POST /ImagingStudy
+{
+  "resourceType": "ImagingStudy",
+  "status": "available",
+  "modality": [{ "system": "http://dicom.nema.org/resources/ontology/DCM", "code": "US" }],
+  "subject": { "reference": "Patient/pat-1001" },
+  "started": "2026-08-11T14:30:00Z",
+  "description": "Abdominal ultrasound — routine"
+}
+
+# ❌ WRONG — technician creates report
+POST /DiagnosticReport   ← FORBIDDEN for clinicTechnician role
+```
+
+**If violated:** radiologist queue empty or wrong; scope-of-practice breach; audit shows tech authoring clinical reports.
+
+## 2. Radiologist Workflow — Read Then Report
+
+**Actor:** `clinicRadiologist` — step 3 in clinic-workflow.md
+
+- **ALWAYS** read the study before authoring: `GET /ImagingStudy/{id}` (PACS review is external; FHIR holds metadata + linkage).
+- **MUST** create report via `POST /DiagnosticReport` only **after** study exists with `status=available`.
+- **MUST** link report to study (see §3) and set initial `DiagnosticReport.status` to **`preliminary`** while drafting.
+- **MUST** transition to **`final`** on sign-out (radiologist `Practitioner` reference + `issued` timestamp).
+- **NEVER** create or update ImagingStudy — **radiologists CANNOT create ImagingStudy** (403 + `OperationOutcome`).
+
+```http
+# ✅ RIGHT — radiologist flow (clinic-workflow step 3)
+GET /ImagingStudy/stu-2001
+
+POST /DiagnosticReport
+{
+  "resourceType": "DiagnosticReport",
+  "status": "preliminary",
+  "subject": { "reference": "Patient/pat-1001" },
+  "basedOn": [{ "reference": "ImagingStudy/stu-2001" }],
+  "conclusion": "No acute findings."
+}
+```
+
+**If violated:** unsigned reports in production; imaging metadata altered by non-capture role; audit cannot prove read-before-write.
+
+## 3. Report Delivery — Linkage Required
+
+**Actor:** Integration / clinic staff — step 4 in clinic-workflow.md
+
+- **MUST** link every DiagnosticReport to its ImagingStudy via **`basedOn`** → `ImagingStudy/{id}` **OR** valid **`study`** reference (prefer `basedOn` for new writes).
+- **MUST** set `DiagnosticReport.subject` → same `Patient/{id}` as the linked ImagingStudy.
+- **ALWAYS** serve delivery queries as standard FHIR reads: `GET /DiagnosticReport/{id}`, `GET /Patient/{id}`, `GET /ImagingStudy/{id}`.
+- **NEVER** deliver a report bundle where DiagnosticReport cannot be resolved to exactly one ImagingStudy.
+
+**If violated:** referrer EHR cannot reconcile report to study; step 4 delivery fails SLA; compliance chain-of-custody breaks.
+
+## 4. Status Transitions — Allowed Paths Only
+
+### ImagingStudy
+
+```
+requested ──(tech POST capture)──► available ──(report final)──► appended
+   │                                   │
+   └──────── cancelled (admin only) ───┴──────── cancelled
+```
+
+| From | To | Who | Trigger |
+|---|---|---|---|
+| `requested` | `available` | Technician | `POST /ImagingStudy` after capture |
+| `available` | `appended` | System/radiologist sign-out | DiagnosticReport → `final` linked to study |
+| `*` | `cancelled` | Clinic admin only | Audited cancel; not technician/radiologist default |
+
+- **MUST NOT** jump `requested` → `appended` without `available` and a `final` report.
+- **MUST NOT** revert `appended` → `available` without admin audit path.
+
+### DiagnosticReport
+
+```
+preliminary ──(radiologist sign-out)──► final
+     │                                      │
+     └──────── cancelled ───────────────────┴── amended (correction path)
+```
+
+- **MUST** start at `preliminary` on `POST`; **MUST** end at `final` before referrer delivery (clinic-workflow step 4).
+- **NEVER** deliver `preliminary` reports to referring providers.
+
+**If violated:** worklist shows wrong queue state; premature delivery of unsigned reports; monthly compliance audit fails.
+
+## 5. Role Enforcement — Hard Boundaries
+
+From clinic-workflow.md roles table — enforce in handlers before any work (FHIR-00):
+
+| Role | ImagingStudy | DiagnosticReport |
+|---|---|---|
+| **Technician** | CREATE, READ, UPDATE status (capture path only) | READ only |
+| **Radiologist** | READ only | CREATE, READ, UPDATE (preliminary→final) |
+| **Clinic admin** | DELETE/cancel (audit-logged) | — |
+
+- **Technicians CANNOT** `POST`/`PUT` DiagnosticReport — **NEVER** bypass with shared `globalWriter` in production clinic config.
+- **Radiologists CANNOT** `POST`/`PUT` ImagingStudy — capture is technician-owned.
+- **MUST** log user, role, resource ID, and action on every transition (FHIR-01 audit context).
+
+**If violated:** HIPAA minimum-necessary failure; monthly audit (clinic-workflow step 5) flags unauthorized actor; role separation lawsuit exposure.
+
+---
+
+## Forbidden — Do Not Generate
+
+| Forbidden | Consequence |
+|---|---|
+| Technician `POST /DiagnosticReport` | Scope-of-practice + audit failure |
+| Radiologist `POST /ImagingStudy` | Capture integrity broken |
+| Report without `basedOn`/study link | Delivery/interop failure |
+| `DiagnosticReport.final` before `GET` study path | No read-before-write proof |
+| Deliver `preliminary` to referrer | Unsigned report in EHR |
+| ImagingStudy `appended` without `final` report | False "reported" state |
+| Status skip `requested` → `appended` | Broken workflow + worklist |
+| Shared super-user role for tech and rad | Role separation collapse |
+
+Implement workflow guards in **handlers**, not UI-only checks. **MUST** cover technician/radiologist forbidden paths in unit tests and happy-path in E2E.
