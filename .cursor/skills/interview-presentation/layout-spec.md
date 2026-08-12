@@ -104,16 +104,16 @@ Each card:
 | `local-teardown` | DevOps |
 | `pre-review-patterns` | QA |
 | `strengthen-tests` | QA |
-| `first-contribution` | Engineering |
+| `execute-qa-tasks` | QA |
 | `architecture-overview` | Engineering |
+| `add-fhir-resource-type` | Engineering |
+| `remove-fhir-resource-type` | Engineering |
+| `execute-dev-tasks` | Engineering |
+| `requirement-to-tasks` | Engineering · PO · QA |
 | `interview-presentation` | Engineering |
 | `product-owner-overview` | PO |
 
-Always include Planned doors that are part of the story even if missing from disk:
-
-- `/first-contribution` → Engineering
-
-Union rule: start from the mapping table + every discovered `.cursor/skills/*/SKILL.md`. Deduplicate by skill name. Sort: Ready first (by audience DevOps → Engineering → PO → QA), then Planned.
+Union rule: start from the mapping table + every discovered `.cursor/skills/*/SKILL.md`. Deduplicate by skill name. Sort: Ready first (by audience DevOps → Engineering → PO → QA).
 
 Optional filter row of audience pills at the top of the section is fine if it helps scanning — still render the full grid underneath (no hiding).
 

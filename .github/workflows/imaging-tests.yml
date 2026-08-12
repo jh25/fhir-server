@@ -1,0 +1,127 @@
+# MidSizedClinic — ImagingStudy tests + local-setup-equivalent deploy smoke.
+# Required status check name (branch protection): "ImagingStudy tests and deploy smoke"
+name: ImagingStudy tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: imaging-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Same complexity-satisfying password used by local-setup
+  SAPASSWORD: L0cal-Dev-Pwd1
+
+jobs:
+  # Runs unit/E2E tests whose FQN contains ImagingStudy (e.g. *ImagingStudy*.cs from
+  # add-fhir-resource-type). Filter is name-based so new ImagingStudy* tests are picked up
+  # automatically once they are in the project.
+  imaging-tests:
+    name: ImagingStudy filtered tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore ImagingStudy-related test projects
+        run: |
+          dotnet restore src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj
+          dotnet restore test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj
+
+      - name: Test — FullyQualifiedName~ImagingStudy
+        run: |
+          # Matches **/*ImagingStudy*.cs test types once wired via add-fhir-resource-type
+          # (e.g. ImagingStudyRequiredFieldsValidatorTests, ImagingStudyTests).
+          set -euo pipefail
+          echo "Running filter FullyQualifiedName~ImagingStudy on R4 unit + E2E projects"
+          dotnet test \
+            src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --filter "FullyQualifiedName~ImagingStudy" \
+            --logger "trx;LogFileName=imaging-unit.trx" \
+            --results-directory TestResults
+          dotnet test \
+            test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj \
+            --configuration Release \
+            --no-restore \
+            --filter "FullyQualifiedName~ImagingStudy" \
+            --logger "trx;LogFileName=imaging-e2e.trx" \
+            --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: imaging-test-results
+          path: TestResults/**
+          if-no-files-found: ignore
+
+  # Same compose stack as local-setup (samples + local Authority/ASSEMBLY_VER overlay + SQL :1433).
+  # Fails the workflow (and merge, when this job is required) if build/up or /metadata fails.
+  imaging-deploy-smoke:
+    name: ImagingStudy tests and deploy smoke
+    needs: imaging-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Compose up (local-setup equivalent)
+        run: |
+          set -euo pipefail
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/local-setup/docker-compose.local.yaml \
+            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            up -d --build
+
+      - name: Smoke test — GET /metadata == 200
+        run: |
+          set -euo pipefail
+          echo "Waiting for FHIR /metadata on :8080 ..."
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /tmp/fhir-metadata.json -w "%{http_code}" http://localhost:8080/metadata || true)
+            if [ "$code" = "200" ]; then
+              echo "metadata OK (attempt $i)"
+              head -c 200 /tmp/fhir-metadata.json || true
+              echo
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code — retry in 5s"
+            sleep 5
+          done
+          echo "ERROR: /metadata did not return 200 within ~5 minutes"
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/local-setup/docker-compose.local.yaml \
+            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            ps || true
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/local-setup/docker-compose.local.yaml \
+            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            logs --tail=80 fhir-api || true
+          exit 1
+
+      - name: Docker Compose down
+        if: always()
+        run: |
+          docker compose \
+            -f samples/docker/docker-compose.yaml \
+            -f .cursor/skills/local-setup/docker-compose.local.yaml \
+            -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+            down -v || true
