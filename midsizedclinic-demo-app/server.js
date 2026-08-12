@@ -18,21 +18,24 @@ const express = require('express');
 const imagingRouter = require('./routes/imaging');
 const patientsRouter = require('./routes/patients');
 const { pingSql } = require('./db/pool');
+const { resolveStackTarget } = require('./lib/stackTarget');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
 app.get('/health', async (_req, res) => {
+  // Demo Express only — not the FHIR server /metadata endpoint.
+  const stack = resolveStackTarget();
   try {
     const ok = await pingSql();
     if (ok) {
-      res.status(200).json({ status: 'ok', sql: 'up' });
+      res.status(200).json({ status: 'ok', sql: 'up', ...stack });
       return;
     }
-    res.status(503).json({ status: 'degraded', sql: 'down' });
+    res.status(503).json({ status: 'degraded', sql: 'down', ...stack });
   } catch (err) {
     console.error('Health check SQL ping failed:', err.message);
-    res.status(503).json({ status: 'degraded', sql: 'down' });
+    res.status(503).json({ status: 'degraded', sql: 'down', ...stack });
   }
 });
 

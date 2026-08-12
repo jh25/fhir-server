@@ -34,7 +34,7 @@ For Fast Healthcare Interoperability Resources (FHIR) Server system architecture
 
 1. The Problem (ramp time, convention drift, review burden) — plain English
 2. The Solution (four kit layers: boundary + rules + skills + MCP)
-3. Multi-role Entry Points (same kit, different doors: setup, deploy-to-dev, architecture, demo tasks, tests)
+3. Multi-role Entry Points (grouped doors: Run the stack · Build & extend · Plan & product · Prove quality — every skill still shown; audience pills on each card)
 4. Account Value (land → expand → retain)
 
 **Before section 1**, under the title: a short **Why this repo first** frame
@@ -88,7 +88,7 @@ point. Say that plainly.
 ## Design Principle
 
 Use the Canvas format already established for MidSizedClinic (why-this-repo frame,
-three-card problem, visual tree for layers, multi-role grid, account callout).
+three-card problem, visual tree for layers, grouped multi-role entry points with audience pills, account callout).
 That layout communicated without narration — replicate that clarity.
 
 Full component recipe: [layout-spec.md](layout-spec.md). Read it before writing the Canvas.
@@ -185,7 +185,7 @@ in the embedded snapshot; if absent, `status: configured` (file-only — not fab
 | Title frame | Why FHIR/this repo first + Cursor BAA awareness + PHI feed constraints |
 | Problem | Fixed three themes (ramp / conventions / review) in plain English — may cite "0 rules yet" |
 | Solution tree | boundary → rules → skills → MCP; boundary copy must explain PHI-out-of-feed |
-| Entry points | Show **all** doors (discovered skills + known Planned gaps). Tag each with audience: `QA` · `Engineering` · `PO` · `DevOps` (see layout-spec mapping). MCP pills when `usesMcp` is non-empty |
+| Entry points | Show **all** doors, **grouped** (Run the stack · Build & extend · Plan & product · Prove quality — see layout-spec). **Always** tag each card with audience pills: `QA` · `Engineering` · `PO` · `DevOps` (even inside a group). MCP pills when `usesMcp` is non-empty. Do not flatten into one ungrouped wall |
 | Account value | Land = boundary + BAA/PHI story; Expand = skills/rules/MCP; Retain = kit survives the champion |
 
 ### 4. Write the Canvas

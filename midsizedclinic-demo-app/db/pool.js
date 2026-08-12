@@ -22,8 +22,11 @@ function requiredEnv(name) {
 }
 
 function buildConfig() {
+  // SQL_PORT: pre-demo publishes 1433; post-demo (Deploy to Dev) publishes 1434.
+  const port = Number(process.env.SQL_PORT || '1433');
   return {
     server: requiredEnv('SQL_SERVER'),
+    port: Number.isFinite(port) && port > 0 ? port : 1433,
     database: requiredEnv('SQL_DATABASE'),
     user: requiredEnv('SQL_USER'),
     password: requiredEnv('SQL_PASSWORD'),

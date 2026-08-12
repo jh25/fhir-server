@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "seed": "node scripts/seed-demo-data.js"
+    "seed": "node scripts/seed-demo-data.js",
+    "switch:local": "node scripts/switch-stack-target.js local",
+    "switch:dev": "node scripts/switch-stack-target.js dev"
   },
   "engines": {
     "node": ">=18"

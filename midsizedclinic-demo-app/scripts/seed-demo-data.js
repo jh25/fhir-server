@@ -11,6 +11,8 @@
  *      SEED_FORCE=1  — upsert even if seed markers already exist
  */
 
+require('dotenv').config();
+
 const FHIR_BASE = (process.env.FHIR_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 const FORCE = String(process.env.SEED_FORCE || '').toLowerCase() === '1' ||
   String(process.env.SEED_FORCE || '').toLowerCase() === 'true';

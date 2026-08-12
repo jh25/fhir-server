@@ -25,6 +25,9 @@ before using the acronym alone.
 
 `docker ps` names make pre vs post obvious. **local-teardown removes pre-demo only.**
 
+To point the Express demo at either stack: [switch-app-to-local](../switch-app-to-local/SKILL.md) /
+[switch-app-to-dev](../switch-app-to-dev/SKILL.md) (smart SQL vs FHIR).
+
 ## Path A — CI
 
 ```bash

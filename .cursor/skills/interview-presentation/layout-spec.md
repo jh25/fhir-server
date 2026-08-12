@@ -80,18 +80,31 @@ Status: `ready` only if verified this run; else `configured`.
 
 Optional before/after `DiffView` — After side may mention PHI blocked + role skill + MCP if discovered.
 
-## 3. Multi-role Entry Points — show every door, tagged by audience
+## 3. Multi-role Entry Points — grouped doors, audience pills on every card
 
 `H2` + line: same kit, different front doors — pick the job, not a 40-page wiki.
 
-**Show all entry points** as equal cards (grid, typically 2–3 columns). Do **not** hide discovered skills as tiny “Also in kit” pills.
+**Do not** render one flat wall of every skill. **Group** discovered skills under four journey headings (`H3`), then a compact card grid (2–3 columns) inside each group. Still show **every** discovered skill — grouping is for scanability, not hiding.
 
-Each card:
+### Groups (fixed order)
+
+| Group `H3` | Intent | Skills (default membership) |
+|------------|--------|------------------------------|
+| **Run the stack** | Get FHIR + demo up, tear down, deploy, retarget | `local-setup`, `local-teardown`, `deploy-to-dev`, `switch-app-to-local`, `switch-app-to-dev` |
+| **Build & extend** | Architecture and server/demo coding | `architecture-overview`, `add-fhir-resource-type`, `remove-fhir-resource-type`, `execute-dev-tasks`, `interview-presentation` |
+| **Plan & product** | Clinic outcomes and task breakdown | `product-owner-overview`, `requirement-to-tasks` |
+| **Prove quality** | Review, tests, QA verification | `pre-review-patterns`, `strengthen-tests`, `execute-qa-tasks` |
+
+Any newly discovered skill not in the table: place it in the best-fit group by audience (DevOps → Run; Engineering → Build; PO → Plan; QA → Prove). If unclear, **Build & extend**. Never drop a discovered skill.
+
+Optional legend row of audience pills (`DevOps` · `Engineering` · `PO` · `QA`) under the section lead — **in addition to** pills on each card.
+
+### Each card (unchanged elements — pills required)
 
 | Element | Content |
 |---------|---------|
 | Header | `/skill-name` path |
-| Audience tag(s) | One or more of: `QA` · `Engineering` · `PO` · `DevOps` (Pill) |
+| Audience tag(s) | **Always** one or more Pills: `QA` · `Engineering` · `PO` · `DevOps` — even when the parent group already implies a role (e.g. `switch-app-to-dev` under Run the stack still shows `DevOps` · `Engineering`) |
 | Status | Ready / Planned |
 | Body | One-line plain description from skill metadata (or fallback) |
 | Footer | `Code` path + Open button when Ready; MCP pills when wired |
@@ -103,6 +116,8 @@ Each card:
 | `local-setup` | DevOps |
 | `local-teardown` | DevOps |
 | `deploy-to-dev` | DevOps |
+| `switch-app-to-local` | DevOps · Engineering |
+| `switch-app-to-dev` | DevOps · Engineering |
 | `pre-review-patterns` | QA |
 | `strengthen-tests` | QA |
 | `execute-qa-tasks` | QA |
@@ -114,9 +129,9 @@ Each card:
 | `interview-presentation` | Engineering |
 | `product-owner-overview` | PO |
 
-Union rule: start from the mapping table + every discovered `.cursor/skills/*/SKILL.md`. Deduplicate by skill name. Sort: Ready first (by audience DevOps → Engineering → PO → QA).
+Union rule: start from the mapping table + every discovered `.cursor/skills/*/SKILL.md`. Deduplicate by skill name. Within each group, sort Ready first, then by name.
 
-Optional filter row of audience pills at the top of the section is fine if it helps scanning — still render the full grid underneath (no hiding).
+Do **not** replace audience pills with group-only labels. Groups organize; pills still answer “who is this door for?”
 
 ## 4. Account Value — three cards + one callout
 
