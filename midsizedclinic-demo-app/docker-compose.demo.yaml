@@ -1,0 +1,14 @@
+# Overlay: publish SQL Server so the host Express demo can connect.
+# Use with local-setup compose files, for example:
+#
+#   export SAPASSWORD=L0cal-Dev-Pwd1
+#   docker compose \
+#     -f samples/docker/docker-compose.yaml \
+#     -f .cursor/skills/local-setup/docker-compose.local.yaml \
+#     -f midsizedclinic-demo-app/docker-compose.demo.yaml \
+#     up -d --build
+#
+services:
+  sql:
+    ports:
+      - "1433:1433"

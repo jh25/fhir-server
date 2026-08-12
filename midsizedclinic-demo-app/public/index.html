@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MidSizedClinic EHR — Imaging</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to worklist</a>
+
+    <header class="app-bar">
+      <div class="app-bar-left">
+        <div class="logo-mark" aria-hidden="true">+</div>
+        <div class="logo-text">
+          <span class="org">MidSizedClinic</span>
+          <span class="product">Clinical Imaging</span>
+        </div>
+        <nav class="module-nav" aria-label="Clinical modules">
+          <span class="mod-link">Chart</span>
+          <span class="mod-link active">Imaging</span>
+          <span class="mod-link">Orders</span>
+          <span class="mod-link">Reports</span>
+        </nav>
+      </div>
+      <div class="app-bar-right">
+        <span class="env-badge">LOCAL</span>
+        <span class="sys-status" id="sqlStatus">System …</span>
+        <label class="session-switch">
+          <span class="session-label">Role</span>
+          <select id="role" aria-label="Signed-in clinical role">
+            <option value="clinicTechnician" selected>Technician</option>
+            <option value="clinicRadiologist">Radiologist</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <div class="role-banner" id="roleBanner" data-role="clinicTechnician">
+      <strong id="roleBannerTitle">Technician workflow</strong>
+      <span id="roleBannerText"
+        >Review prior studies at check-in before capturing a new ultrasound.</span
+      >
+    </div>
+
+    <div class="patient-banner" id="patientBanner">
+      <div class="patient-avatar" id="patientAvatar" aria-hidden="true">A</div>
+      <div class="patient-core">
+        <div class="patient-name-row">
+          <h1 id="patientDisplayName">Demo, Alex</h1>
+          <span class="pill soft" id="chartPill">Active chart</span>
+        </div>
+        <dl class="patient-ids">
+          <div>
+            <dt>Patient ID</dt>
+            <dd id="bannerPatientId">pat-1001</dd>
+          </div>
+          <div>
+            <dt>Encounter</dt>
+            <dd id="bannerEncounter">Imaging check-in</dd>
+          </div>
+          <div>
+            <dt>Open chart</dt>
+            <dd id="bannerSubjectRef">Patient/pat-1001</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="patient-picker">
+        <span class="picker-label">Open chart</span>
+        <div class="chart-tabs" id="chartTabs" role="tablist" aria-label="Seeded patient charts"></div>
+        <div class="combo" id="patientCombo">
+          <input
+            id="patientSearch"
+            type="search"
+            placeholder="Type name or ID…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-autocomplete="list"
+            aria-controls="patientSuggestions"
+            aria-expanded="false"
+          />
+          <ul id="patientSuggestions" class="suggest-list" role="listbox" hidden></ul>
+        </div>
+        <input type="hidden" id="patientId" value="pat-1001" />
+      </div>
+    </div>
+
+    <main id="main" class="workspace">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Prior imaging studies</h2>
+            <p class="panel-sub" id="panelSub">
+              Showing studies for the open patient only (compartment search).
+            </p>
+          </div>
+          <div class="panel-meta" id="meta">Loading worklist…</div>
+        </div>
+
+        <div class="toolbar" aria-label="Worklist filters">
+          <div class="filter-group">
+            <span class="filter-label">Modality</span>
+            <div class="chip-row" role="group" aria-label="Modality filter">
+              <button type="button" class="chip active" data-modality="">All</button>
+              <button type="button" class="chip" data-modality="US">Ultrasound</button>
+              <button type="button" class="chip" data-modality="CT">CT</button>
+            </div>
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" id="loadBtn" class="btn primary">Refresh</button>
+          </div>
+        </div>
+
+        <div class="grid-wrap">
+          <table class="clinical-grid" id="studiesTable">
+            <thead>
+              <tr>
+                <th scope="col">Study ID</th>
+                <th scope="col">Study date/time</th>
+                <th scope="col">Modality</th>
+                <th scope="col">Status</th>
+                <th scope="col">Study description</th>
+                <th scope="col">Subject</th>
+              </tr>
+            </thead>
+            <tbody id="studiesBody">
+              <tr class="empty-row">
+                <td colspan="6">Loading studies…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-foot">
+          <span id="resultCount">Loading…</span>
+          <span id="lastRefreshed"></span>
+        </div>
+      </section>
+
+      <aside class="side-help" aria-label="Chart tips">
+        <h3>Click around</h3>
+        <ul>
+          <li>Use <strong>Alex</strong> / <strong>Blake</strong> tabs (or typeahead)</li>
+          <li>Blake has ultrasound only — CT filter will look empty</li>
+          <li>Role changes the task banner, not the study list</li>
+        </ul>
+        <h3>Why role doesn’t change rows</h3>
+        <p>
+          Technician and Radiologist both <strong>read</strong> ImagingStudy. In the real server,
+          role changes what you can <em>write</em> (tech creates studies; rad creates reports).
+        </p>
+        <p class="fineprint">
+          API: <code>GET /Patient/{id}/ImagingStudy</code> — patient compartment only.
+        </p>
+      </aside>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

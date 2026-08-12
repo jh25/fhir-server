@@ -21,7 +21,9 @@ Runs as local checks or automated PR validation.
 
 **Pattern:** `int.Parse()`, `long.Parse()`, `double.Parse()`, `DateTime.Parse()` without try-catch
 
-**Why:** Throws `FormatException` on malformed input. In FHIR APIs, untrusted user input (dates, IDs, numeric search params) can crash endpoints.
+**Why:** Throws `FormatException` on malformed input. In Fast Healthcare
+Interoperability Resources (FHIR) APIs, untrusted user input (dates, IDs, numeric
+search params) can crash endpoints.
 
 **Locations Found:**
 - `src/Microsoft.Health.Fhir.Core/Models/PartialDateTime.cs:172` — `int.Parse(match.Groups[YearCapture].Value)`

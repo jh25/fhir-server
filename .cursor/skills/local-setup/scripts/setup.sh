@@ -40,12 +40,23 @@ echo "== step 2: dotnet build src/Microsoft.Health.Fhir.R4.Web (not R4.slnf - se
 dotnet build src/Microsoft.Health.Fhir.R4.Web/Microsoft.Health.Fhir.R4.Web.csproj
 
 echo
-echo "== steps 3-4: docker compose up with local overrides =="
+echo "== steps 3-4: docker compose up with local overrides + demo SQL port 1433 =="
 export SAPASSWORD="${SAPASSWORD:-L0cal-Dev-Pwd1}"
 
+demo_compose="$repo_root/midsizedclinic-demo-app/docker-compose.demo.yaml"
 compose_args=(-f samples/docker/docker-compose.yaml -f "$skill_dir/docker-compose.local.yaml")
+if [[ -f "$demo_compose" ]]; then
+  compose_args+=(-f "$demo_compose")
+  echo "including $demo_compose (publishes sql:1433 for the Express demo)"
+else
+  echo "WARNING: $demo_compose missing — host demo app cannot reach SQL on localhost:1433" >&2
+fi
 docker compose "${compose_args[@]}" up -d --build
 
 echo
-echo "== step 5: verify =="
+echo "== step 5: verify FHIR API =="
 "$script_dir/verify.sh"
+
+echo
+echo "== step 6: MidSizedClinic imaging demo app (Express on :3000) =="
+"$script_dir/start-demo-app.sh"

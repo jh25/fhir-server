@@ -44,7 +44,8 @@ test/
 
 **Pattern:** Methods with multiple `throw` statements, but test coverage only validates happy path.
 
-**Why:** FHIR APIs reject malformed requests with specific status codes. Missing error tests means:
+**Why:** Fast Healthcare Interoperability Resources (FHIR) APIs reject malformed
+requests with specific status codes. Missing error tests means:
 - Error handling code is never exercised
 - Errors may not serialize correctly (500 vs 400)
 - Error messages may leak sensitive data

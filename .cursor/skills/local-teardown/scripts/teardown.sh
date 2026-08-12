@@ -31,15 +31,25 @@ report() {
 report "before"
 echo
 
+echo "== stop MidSizedClinic imaging demo app =="
+"$script_dir/stop-demo-app.sh"
+echo
+
+# Include demo overlay when present so compose project matches local-setup (sql:1433).
+demo_compose="$repo_root/midsizedclinic-demo-app/docker-compose.demo.yaml"
+if [[ -f "$demo_compose" ]]; then
+  compose_args+=(-f "$demo_compose")
+fi
+
 if [[ "$mode" == "down" ]]; then
   echo "running 'docker compose down': this removes the containers and network, and"
-  echo "since the sql service has no volume, the database goes with them. There's"
-  echo "nothing to resume - local-setup will build and initialize from scratch next time."
+  echo "since the sql service has no volume, the database (and demo seed data) goes with them."
+  echo "There's nothing to resume - local-setup will build and initialize from scratch next time."
   docker compose "${compose_args[@]}" down
 else
   echo "running 'docker compose stop': containers and the database are kept, just"
   echo "halted. 'docker compose start' (or local-setup/scripts/setup.sh) resumes from"
-  echo "here. Pass --down to this script instead if you want a full removal."
+  echo "here. Demo seed data in SQL is preserved. Pass --down if you want a full removal."
   docker compose "${compose_args[@]}" stop
 fi
 
