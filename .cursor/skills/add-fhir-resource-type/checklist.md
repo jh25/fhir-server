@@ -12,10 +12,12 @@ Companion to [SKILL.md](SKILL.md). Pairs with [remove-fhir-resource-type](../rem
 
 ## ImagingStudy R4 — go straight here
 
+After remove, these are usually **absent** — **create**; do not assume prior add left them.
+
 | Item | Path |
 |------|------|
 | Const | `src/Microsoft.Health.Fhir.Core/Models/KnownResourceTypes.cs` |
-| FHIR-10 validator | `…/Validation/ImagingStudyRequiredFieldsValidator.cs` |
+| FHIR-10 validator | `…/Validation/ImagingStudyRequiredFieldsValidator.cs` (create if missing) |
 | Wire | `…/Validation/ResourceElementValidator.cs` |
 | Unit | `Shared.Core.UnitTests/…/ImagingStudyRequiredFieldsValidatorTests.cs` + **projitems** |
 | E2E | `Shared.Tests.E2E/Rest/ImagingStudyTests.cs` + **projitems** |

@@ -36,6 +36,67 @@ CapabilityStatement for a test cycle, add an explicit filter in
 Data in **`dbo.Resource`** (and search index tables) is **preserved** so the type
 can be re-added later via add-fhir-resource-type.
 
+## Agent fast path — ImagingStudy “undo wiring only” (do not rediscover)
+
+Mirror of [add-fhir-resource-type](../add-fhir-resource-type/SKILL.md) fast path.
+**Delete only what add created.** Skip architecture tours.
+
+### 0. Git first
+
+```bash
+git status
+git diff --stat
+rg -n "ImagingStudyRequiredFieldsValidator|imagingstudy-clinic-required|ImagingStudyTests|KnownResourceTypes\.ImagingStudy" .
+```
+
+| Working-tree state | Action |
+|--------------------|--------|
+| Uncommitted add (new files + edits) | Delete new files; restore edited files to HEAD (`git checkout -- <file>` or reverse the hunks) |
+| Add committed on this branch | Prefer `git revert <add-commit>` **or** hand-delete the list below |
+| Nothing of ours left | Stop — already undone; confirm with rg |
+
+### 1. Delete / revert this set (ImagingStudy A+B+C)
+
+| Item | Path / action |
+|------|----------------|
+| Const | Remove `ImagingStudy` from `KnownResourceTypes.cs` |
+| Validator file | **Delete** `src/Microsoft.Health.Fhir.Core/Features/Validation/ImagingStudyRequiredFieldsValidator.cs` |
+| Wire | Remove `SetValidator(new ImagingStudyRequiredFieldsValidator())` from `ResourceElementValidator.cs` |
+| Unit tests | **Delete** `…/ImagingStudyRequiredFieldsValidatorTests.cs` |
+| Unit projitems | Remove Compile line from `Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems` |
+| E2E tests | **Delete** `test/…/Rest/ImagingStudyTests.cs` |
+| E2E projitems | Remove Compile line from `Microsoft.Health.Fhir.Shared.Tests.E2E.projitems` |
+| Clinic JSON | **Delete** `TestFiles/R4/imagingstudy-clinic-required.json` |
+| csproj embed | Remove `None Remove` + `EmbeddedResource` for clinic JSON from `Tests.Common.csproj` |
+
+### 2. Do **not** touch (pre-existing / Firely)
+
+| Leave alone | Why |
+|-------------|-----|
+| `TestFiles/R4/imagingstudy-example.json` | Shared HL7 sample; not our clinic fixture |
+| `Data/R4/search-parameters.json` / `compartment.json` ImagingStudy blocks | HL7 embedded data |
+| `SqlServerSortingValidator` ImagingStudy-started URI | Product allowlist, not add wiring |
+| `SearchParameterDefinitionBuilder` ImagingStudy-reason URI | Pre-existing |
+| `tools/FHIRDataSynth/**` ImagingStudy adapters | Unrelated synth tool |
+| Integration tests that mention ImagingStudy (e.g. stats) | Not our E2E suite |
+| `dbo.Resource` / HardDelete | Preserve data |
+
+### 3. Verify undo (expect Firely still lists type)
+
+```bash
+# Our wiring gone
+rg -n "ImagingStudyRequiredFieldsValidator|imagingstudy-clinic-required|ImagingStudyTests|KnownResourceTypes\.ImagingStudy" src test || true
+
+dotnet build src/Microsoft.Health.Fhir.R4.Core/Microsoft.Health.Fhir.R4.Core.csproj
+dotnet build src/Microsoft.Health.Fhir.R4.Core.UnitTests/Microsoft.Health.Fhir.R4.Core.UnitTests.csproj
+dotnet build test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj
+```
+
+`GET /metadata` — ImagingStudy **still present** (correct for “undo wiring only”).
+Optional SQL read-only check: step 6 below.
+
+Re-add later: [add-fhir-resource-type](../add-fhir-resource-type/SKILL.md) — **create** fast-path files if missing.
+
 ## Interactive prompts (required — ask before coding)
 
 ```
@@ -161,11 +222,13 @@ skill.
 
 ## Anti-patterns
 
+- Broad-searching the repo and deleting every “ImagingStudy” hit (synth tools, sort allowlist, HL7 JSON)
 - Hard-deleting FHIR resources to “unregister” a type
 - Editing HL7 `search-parameters.json` to remove a standard type
 - Assuming KnownResourceTypes controls `/metadata`
 - Leaving a ModelInfo hide-filter in a PR meant for upstream merge
 - Skipping the DB preservation check after a remove cycle
+- Rediscovering delete targets instead of using the ImagingStudy fast-path table
 
 ## Done when
 

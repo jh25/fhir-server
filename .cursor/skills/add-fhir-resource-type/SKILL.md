@@ -45,7 +45,7 @@ ImagingStudy clinic contracts: **FHIR-10**–**FHIR-13**. Spec metadata:
 | Level | ImagingStudy (R4) |
 |-------|-------------------|
 | **1 Spec** | **Exists** — Firely; `Data/R4/search-parameters.json`; `compartment.json`; `TestFiles/R4/imagingstudy-example.json` (HL7 sample — incomplete for FHIR-10) |
-| **2 Codebase** | Prefer re-verify: const `KnownResourceTypes.ImagingStudy`; `ImagingStudyRequiredFieldsValidator`; unit + E2E (`ImagingStudyTests`). If already present, skip to Level 3 / remaining gaps. |
+| **2 Codebase** | **Re-verify every run** (add↔remove cycles leave these absent). If missing → create (table below). If present → skip to Level 3 / remaining gaps. |
 | **3 Clinic** | Demo worklist may still use SQL (`midsizedclinic-demo-app`) — Level 3 is “apps call FHIR REST”, not more server wiring |
 
 Default suggestion unless the engineer names another type: **ImagingStudy**.
@@ -53,6 +53,7 @@ Default suggestion unless the engineer names another type: **ImagingStudy**.
 ## Agent fast path (do not rediscover)
 
 Go **straight to these files**. Avoid broad `**/Validator*` / architecture tours.
+After [remove-fhir-resource-type](../remove-fhir-resource-type/SKILL.md), paths below are usually **gone** — **create** them; do not assume a prior add left them on disk.
 
 | Goal | Path / action |
 |------|----------------|
@@ -61,14 +62,14 @@ Go **straight to these files**. Avoid broad `**/Validator*` / architecture tours
 | Compartment | `Data/R4/compartment.json` — already lists ImagingStudy |
 | Conformance | No code change — `GET /metadata` from `GetResourceTypeNames()` / Firely |
 | Clinic required fields | Add/extend `AbstractValidator<ResourceElement>` like `NarrativeValidator`; **compose** in `ResourceElementValidator` with `RuleFor(x => x).SetValidator(new …())` |
-| Existing FHIR-10 validator | `src/Microsoft.Health.Fhir.Core/Features/Validation/ImagingStudyRequiredFieldsValidator.cs` |
-| Wire point | `src/Microsoft.Health.Fhir.Core/Features/Validation/ResourceElementValidator.cs` — Create/Upsert already nest this; **no** new DI / no handler-only checks |
+| FHIR-10 validator | **Create if missing:** `src/Microsoft.Health.Fhir.Core/Features/Validation/ImagingStudyRequiredFieldsValidator.cs` |
+| Wire point | `ResourceElementValidator.cs` — `RuleFor(x => x).SetValidator(new ImagingStudyRequiredFieldsValidator())`; Create/Upsert already nest this; **no** new DI / no handler-only checks |
 | Issue shape | `FhirValidationFailure` + `OperationOutcomeIssue` + `OperationOutcomeConstants.IssueType.Required` |
-| Unit tests | `src/Microsoft.Health.Fhir.Shared.Core.UnitTests/Features/Validation/ImagingStudyRequiredFieldsValidatorTests.cs` |
+| Unit tests | **Create if missing:** `…/ImagingStudyRequiredFieldsValidatorTests.cs` + projitems Compile |
 | Unit projitems | **Must** add `<Compile Include=…>` to `Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems` |
-| E2E tests | `test/Microsoft.Health.Fhir.Shared.Tests.E2E/Rest/ImagingStudyTests.cs` + entry in `Microsoft.Health.Fhir.Shared.Tests.E2E.projitems` |
+| E2E tests | **Create if missing:** `test/…/Rest/ImagingStudyTests.cs` + `Shared.Tests.E2E.projitems` Compile |
 | E2E usings | `Microsoft.Health.Fhir.Core.Extensions` for `.ToPoco<T>()` |
-| Clinic sample JSON | `TestFiles/R4/imagingstudy-clinic-required.json` (+ EmbeddedResource in `Tests.Common.csproj`). **Do not** use `imagingstudy-example.json` for FHIR-10 happy path (missing study-level `modality` / `description`) |
+| Clinic sample JSON | **Create if missing:** `TestFiles/R4/imagingstudy-clinic-required.json` (+ EmbeddedResource in `Tests.Common.csproj`). **Do not** use `imagingstudy-example.json` for FHIR-10 happy path |
 | Verify unit | `dotnet test src/Microsoft.Health.Fhir.R4.Core.UnitTests/… --filter FullyQualifiedName~ImagingStudyRequiredFieldsValidatorTests` |
 | Verify E2E compile | `dotnet build test/Microsoft.Health.Fhir.R4.Tests.E2E/…` (full E2E needs host/DB) |
 
@@ -93,13 +94,13 @@ Simple questions. Answer one at a time:
 
 3. Verify spec exists? (rg Data/R4 — ImagingStudy already in search-params + compartment)
 
-4. Re-verify codebase gaps (do not assume missing — check fast-path files first):
+4. Re-verify codebase gaps (check fast-path files — may be absent after remove):
    A: KnownResourceTypes.ImagingStudy
    B: ImagingStudyRequiredFieldsValidator (+ ResourceElementValidator wire)
    C: unit + E2E ImagingStudy tests in projitems
    
 5. Which gaps to fix this pass?
-   Only missing ones · A+B+C if greenfield · Level 3 app REST if server already done
+   Only missing ones · A+B+C if greenfield / post-remove · Level 3 app REST if server already done
 ```
 
 ### Spec gather (after type + version chosen)
@@ -148,7 +149,7 @@ File: `src/Microsoft.Health.Fhir.Core/Models/KnownResourceTypes.cs`
 
 - Default: FluentValidation → `ResourceContentValidator` / Firely attributes; optional profiles via Specification.Data.
 - Do **not** invent a parallel validator stack or handler-only clinic checks.
-- FHIR-10 ImagingStudy: `ImagingStudyRequiredFieldsValidator` composed into `ResourceElementValidator` (covers create + upsert). Reuse if present; extend only if rules change.
+- FHIR-10 ImagingStudy: `ImagingStudyRequiredFieldsValidator` composed into `ResourceElementValidator` (covers create + upsert). **Create if missing** (common after remove); reuse/extend only if present and rules changed.
 - Authz stays in handlers (FHIR-00); validation stays in FluentValidation → `OperationOutcome`.
 
 ### 5. Unit + E2E tests (FHIR-02)
