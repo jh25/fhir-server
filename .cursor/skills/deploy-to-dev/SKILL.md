@@ -3,9 +3,9 @@ name: deploy-to-dev
 description: >-
   Deploys MidSizedClinic "Dev" via CI/CD to the post-demo Fast Healthcare
   Interoperability Resources (FHIR) Docker stack (post-demo-fhir-api on :8081),
-  without replacing pre-demo local-setup on :8080. Use when the user says Deploy
-  to Dev, /deploy-to-dev, run the CI deploy, promote to local, or wants
-  .github/workflows/deploy-to-dev.yml.
+  without replacing pre-demo local-setup on :8080. Always ask main vs
+  post-change first. Use when the user says Deploy to Dev, /deploy-to-dev, run
+  the CI deploy, promote to local, or wants .github/workflows/deploy-to-dev.yml.
 disable-model-invocation: false
 ---
 
@@ -28,32 +28,33 @@ before using the acronym alone.
 To point the Express demo at either stack: [switch-app-to-local](../switch-app-to-local/SKILL.md) /
 [switch-app-to-dev](../switch-app-to-dev/SKILL.md) (smart SQL vs FHIR).
 
-## Path A — CI
+## Interactive prompt (required — ask before deploying)
 
-Auto-runs on **push/PR to `main`** (checks out that event’s ref).
+**Always ask first.** Do not start Docker, checkout, or CI until the user answers.
+Same choices as the GitHub Actions dropdown:
 
-**Manual — pick a branch** (dropdown; create `post-change` when you are ready — listed here for the demo):
-
-```bash
-# Actions UI: Actions → Deploy to Dev → Run workflow → choose main | post-change
-# Or CLI:
-gh workflow run deploy-to-dev.yml -f ref=post-change
-gh run list --workflow=deploy-to-dev.yml --limit 5
-gh run watch
+```
+Which branch to deploy to post-demo?
+1. main
+2. post-change
 ```
 
-| Input | Meaning |
-|-------|---------|
-| `ref` | Choice: `main` or `post-change` (default `main`) |
+| Choice | Meaning |
+|--------|---------|
+| `main` | Stable / pre+post overlays on main |
+| `post-change` | Demo “after” branch (create it if missing — do not invent commits) |
 
-| Job | Role |
-|-----|------|
-| Tests | ImagingStudy MTP gate (exit 5/8 OK if none) |
-| Deploy | `post-demo` → `/metadata` on `:8081` → `down -v` (CI runner tears down; local Path B leaves up) |
+Accept `1`/`2`, `main`, or `post-change`. If `post-change` does not exist locally or on `origin`, **stop** and tell the user to create/push it — do not invent the branch.
 
-## Path B — Local parity (leave post-demo up)
+Optional follow-up only if unclear: **Local Path B** (leave post-demo up on this machine) vs **CI Path A** (Actions run; runner tears down). Default: **Path B**.
 
-Checkout the branch you want **first**, then run (no branch flag — uses the working tree):
+## Path B — Local parity (default; leave post-demo up)
+
+After the branch is chosen:
+
+1. Stash or warn if the working tree is dirty and checkout would lose work.
+2. `git fetch origin` (if needed) then `git checkout <main|post-change>` (track `origin/<branch>` when present).
+3. Deploy from that working tree:
 
 ```bash
 bash .cursor/skills/deploy-to-dev/scripts/deploy-local-parity.sh
@@ -68,7 +69,9 @@ docker compose \
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8081/metadata
 ```
 
-Tear down **post-demo** only:
+Expect **200** on `http://localhost:8081/metadata`. Do not tear down pre-demo.
+
+Tear down **post-demo** only when asked:
 
 ```bash
 docker compose \
@@ -77,15 +80,34 @@ docker compose \
   down
 ```
 
+## Path A — CI (optional)
+
+Auto-runs on **push/PR to `main`**. Manual run uses the same branch choice:
+
+```bash
+# Actions UI: Actions → Deploy to Dev → Run workflow → main | post-change
+gh workflow run deploy-to-dev.yml -f ref=<main|post-change>
+gh run list --workflow=deploy-to-dev.yml --limit 5
+gh run watch
+```
+
+| Job | Role |
+|-----|------|
+| Tests | ImagingStudy MTP gate (exit 5/8 OK if none) |
+| Deploy | `post-demo` → `/metadata` on `:8081` → `down -v` (CI runner tears down) |
+
 ## Forbidden
 
 | Do not | Why |
 |--------|-----|
+| Skip the branch prompt | Demo needs an explicit main vs post-change choice |
 | Use local-teardown for post-demo | Wrong project — removes pre-demo |
 | Expect Deploy on `:8080` | post-demo is `:8081` |
 | Duplicate a second deploy workflow | One pipeline: `deploy-to-dev.yml` |
+| Create `post-change` with fake history | User creates that branch when ready |
 
 ## Related
 
 - Overlay: [docker-compose.deploy.yaml](docker-compose.deploy.yaml) (`name: post-demo`)
+- Workflow: [deploy-to-dev.yml](../../../.github/workflows/deploy-to-dev.yml) (`workflow_dispatch` choices: `main`, `post-change`)
 - pre-demo: [local-setup](../local-setup/SKILL.md)
