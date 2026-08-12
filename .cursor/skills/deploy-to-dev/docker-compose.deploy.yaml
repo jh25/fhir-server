@@ -1,17 +1,17 @@
-# Deploy-to-Dev stack — separate compose project + host ports so it can run
-# alongside local-setup (project "docker", FHIR :8080, SQL :1433) without replacing it.
+# post-demo stack — Deploy to Dev (FHIR :8081, SQL :1434).
+# Alongside pre-demo (local-setup :8080/:1433). local-teardown does NOT remove these.
 #
 #   docker compose \
 #     -f samples/docker/docker-compose.yaml \
-#     -f .cursor/skills/local-setup/docker-compose.local.yaml \
 #     -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
 #     up -d --build
 #
 # Smoke: http://localhost:8081/metadata
-name: midsizedclinic-deploy
+name: post-demo
 
 services:
   fhir-api:
+    container_name: post-demo-fhir-api
     build:
       args:
         ASSEMBLY_VER: "1.0.0"
@@ -20,7 +20,6 @@ services:
     ports: !override
       - "8081:8080"
   sql:
-    # Not required for /metadata smoke; published so host tools can hit this stack
-    # without colliding with local-setup's :1433.
+    container_name: post-demo-sql
     ports: !override
       - "1434:1433"

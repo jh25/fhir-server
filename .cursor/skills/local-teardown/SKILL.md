@@ -6,7 +6,7 @@ description: >-
   :3000) cleanly. Use when someone asks to tear down, clean up, stop the server,
   stop the demo app, or remove the environment — and automatically when any of
   these show up, since they all mean the environment is in a stuck or confusing
-  state: "docker-fhir-api-1" appearing in logs (containers are still up),
+  state: "pre-demo-fhir-api" appearing in logs (containers are still up),
   "already in use" (a port conflict - something, usually Kestrel, can't bind
   because the containers already hold it), or "Connection refused" (something
   tried to reach the server and found nothing there).
@@ -16,7 +16,9 @@ disable-model-invocation: false
 # Local teardown
 
 Companion to `local-setup` for the MidSizedClinic Fast Healthcare Interoperability
-Resources (FHIR) stack. Run `scripts/teardown.sh`, or do it by hand.
+Resources (FHIR) **pre-demo** stack (`pre-demo-fhir-api` / `pre-demo-sql` on
+`:8080` / `:1433`). Does **not** remove Deploy to Dev **post-demo**
+(`post-demo-fhir-api` on `:8081`). Run `scripts/teardown.sh`, or do it by hand.
 
 **Always stop the MidSizedClinic demo app first**, then stop (or down) Docker. That frees port **3000** and avoids a stray `node` process after containers halt.
 
@@ -54,7 +56,7 @@ docker compose \
   stop
 ```
 
-Halts both containers, keeps them and the SQL data (including demo seed ImagingStudy rows) intact. This is the default because it's reversible - `docker compose start` or local-setup picks up where you left off. Compose derives the project name from the *first* `-f` file's directory (`samples/docker`), so this targets the same `docker-fhir-api-1` / `docker-sql-1` containers regardless of which skill folder's override rides along.
+Halts both **pre-demo** containers, keeps them and the SQL data (including demo seed ImagingStudy rows) intact. This is the default because it's reversible - `docker compose start` or local-setup picks up where you left off. Compose project name is **`pre-demo`** (from `docker-compose.local.yaml`), so containers are `pre-demo-fhir-api` / `pre-demo-sql` — not the Deploy to Dev `post-demo-*` stack.
 
 ## Optional: down
 
@@ -71,7 +73,7 @@ Removes the containers and network entirely. The `sql` service has no volume, so
 ## Confirming it worked
 
 ```bash
-docker ps --filter "name=docker-fhir-api" --filter "name=docker-sql"
+docker ps --filter "name=pre-demo-fhir-api" --filter "name=pre-demo-sql"
 ```
 
 Empty output means Docker services are not running. `docker ps` only lists running containers, so this reads the same after `stop` and after `down` - use `docker ps -a` if you need to tell those two apart (existing-but-stopped vs. actually removed).

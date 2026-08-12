@@ -1,2 +1,9 @@
+# Must match local-setup: compose project pre-demo (containers pre-demo-fhir-api / pre-demo-sql).
+# Does not touch post-demo (Deploy to Dev).
+name: pre-demo
+
 services:
-  fhir-api: {}
+  fhir-api:
+    container_name: pre-demo-fhir-api
+  sql:
+    container_name: pre-demo-sql

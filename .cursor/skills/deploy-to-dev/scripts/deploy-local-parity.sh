@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Local parity for Deploy to Dev (.github/workflows/deploy-to-dev.yml).
-# Uses compose project midsizedclinic-deploy on :8081/:1434 — does NOT replace
-# local-setup (docker / :8080/:1433). Leaves the deploy stack running (CI downs it).
+# Local parity for Deploy to Dev — compose project post-demo (:8081/:1434).
+# Does NOT replace pre-demo (local-setup on :8080/:1433). Leaves post-demo running.
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +16,7 @@ for arg in "$@"; do
     --skip-build) skip_build=1 ;;
     -h|--help)
       echo "Usage: deploy-local-parity.sh [--with-tests] [--skip-build]"
-      echo "Deploys side-by-side stack midsizedclinic-deploy (FHIR :8081, SQL :1434)."
+      echo "Deploys post-demo stack (post-demo-fhir-api / post-demo-sql on :8081/:1434)."
       exit 0
       ;;
     *)
@@ -42,7 +41,6 @@ fhir_port="${FHIR_DEPLOY_PORT:-8081}"
 compose=(
   docker compose
   -f samples/docker/docker-compose.yaml
-  -f .cursor/skills/local-setup/docker-compose.local.yaml
   -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml
 )
 
@@ -76,7 +74,7 @@ if [[ "$with_tests" -eq 1 ]]; then
   done
 fi
 
-echo "== Docker Compose up (project midsizedclinic-deploy; leave running) =="
+echo "== Docker Compose up (project post-demo; leave running) =="
 if [[ "$skip_build" -eq 1 ]]; then
   "${compose[@]}" up -d
 else
@@ -104,9 +102,10 @@ if [[ "$ok" -ne 1 ]]; then
 fi
 
 echo
-echo "Deploy to Dev (local parity) succeeded."
-echo "FHIR (deploy stack): http://localhost:${fhir_port}/metadata"
-echo "local-setup (if running) stays on :8080 — this did not replace it."
-echo "Tear down deploy stack only:"
-echo "  docker compose -f samples/docker/docker-compose.yaml -f .cursor/skills/local-setup/docker-compose.local.yaml -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml down"
-echo "Do not use local-teardown for this stack (that targets the local-setup project)."
+echo "Deploy to Dev (post-demo) succeeded."
+echo "Containers: post-demo-fhir-api, post-demo-sql"
+echo "FHIR: http://localhost:${fhir_port}/metadata"
+echo "pre-demo (local-setup) on :8080 is untouched."
+echo "Tear down post-demo only:"
+echo "  docker compose -f samples/docker/docker-compose.yaml -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml down"
+echo "local-teardown removes pre-demo only — not this stack."

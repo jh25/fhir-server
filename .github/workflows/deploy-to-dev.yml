@@ -1,6 +1,5 @@
-# MidSizedClinic — Deploy to Dev (side-by-side local Docker stack).
-# Pipeline: Tests gate + Deploy run in parallel (Deploy uses project midsizedclinic-deploy
-# on :8081/:1434 so it does not replace local-setup on :8080/:1433).
+# MidSizedClinic — Deploy to Dev (post-demo stack, parallel with Tests).
+# post-demo = Deploy to Dev (:8081/:1434). pre-demo = local-setup (:8080/:1433).
 # Required status check name (branch protection): "Deploy"
 name: Deploy to Dev
 
@@ -18,7 +17,6 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   SAPASSWORD: L0cal-Dev-Pwd1
-  # Side-by-side stack (see docker-compose.deploy.yaml)
   FHIR_DEPLOY_PORT: "8081"
 
 jobs:
@@ -87,12 +85,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Docker Compose up (midsizedclinic-deploy on :8081)
+      - name: Docker Compose up (post-demo on :8081)
         run: |
           set -euo pipefail
           docker compose \
             -f samples/docker/docker-compose.yaml \
-            -f .cursor/skills/local-setup/docker-compose.local.yaml \
             -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             up -d --build
 
@@ -100,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           port="${FHIR_DEPLOY_PORT}"
-          echo "Waiting for FHIR /metadata on :${port} (deploy stack) ..."
+          echo "Waiting for FHIR /metadata on :${port} (post-demo) ..."
           for i in $(seq 1 60); do
             code=$(curl -s -o /tmp/fhir-metadata.json -w "%{http_code}" "http://localhost:${port}/metadata" || true)
             if [ "$code" = "200" ]; then
@@ -115,21 +112,18 @@ jobs:
           echo "ERROR: /metadata did not return 200 within ~5 minutes"
           docker compose \
             -f samples/docker/docker-compose.yaml \
-            -f .cursor/skills/local-setup/docker-compose.local.yaml \
             -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             ps || true
           docker compose \
             -f samples/docker/docker-compose.yaml \
-            -f .cursor/skills/local-setup/docker-compose.local.yaml \
             -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             logs --tail=80 fhir-api || true
           exit 1
 
-      - name: Docker Compose down (deploy stack only)
+      - name: Docker Compose down (post-demo only)
         if: always()
         run: |
           docker compose \
             -f samples/docker/docker-compose.yaml \
-            -f .cursor/skills/local-setup/docker-compose.local.yaml \
             -f .cursor/skills/deploy-to-dev/docker-compose.deploy.yaml \
             down -v || true
